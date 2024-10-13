@@ -1,0 +1,596 @@
+{
+  "scene_dimensions": [
+    256,
+    256
+  ],
+  "bodies": [
+    {
+      "position": [
+        128.0,
+        -2.5
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 0,
+      "diameter": 256.0488234692751,
+      "vertices": [
+        [
+          128.0,
+          2.5
+        ],
+        [
+          -128.0,
+          2.5
+        ],
+        [
+          -128.0,
+          -2.5
+        ],
+        [
+          128.0,
+          -2.5
+        ]
+      ]
+    },
+    {
+      "position": [
+        -2.5,
+        128.0
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 0,
+      "diameter": 256.0488234692751,
+      "vertices": [
+        [
+          2.5,
+          128.0
+        ],
+        [
+          -2.5,
+          128.0
+        ],
+        [
+          -2.5,
+          -128.0
+        ],
+        [
+          2.5,
+          -128.0
+        ]
+      ]
+    },
+    {
+      "position": [
+        128.0,
+        258.5
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 0,
+      "diameter": 256.0488234692751,
+      "vertices": [
+        [
+          128.0,
+          2.5
+        ],
+        [
+          -128.0,
+          2.5
+        ],
+        [
+          -128.0,
+          -2.5
+        ],
+        [
+          128.0,
+          -2.5
+        ]
+      ]
+    },
+    {
+      "position": [
+        258.5,
+        128.0
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 0,
+      "diameter": 256.0488234692751,
+      "vertices": [
+        [
+          2.5,
+          128.0
+        ],
+        [
+          -2.5,
+          128.0
+        ],
+        [
+          -2.5,
+          -128.0
+        ],
+        [
+          2.5,
+          -128.0
+        ]
+      ]
+    },
+    {
+      "position": [
+        137.70287490536504,
+        230.4
+      ],
+      "bodyType": 1,
+      "angle": 0.0,
+      "color": 2,
+      "shapeType": 1,
+      "diameter": 25.0,
+      "radius": 12.5
+    },
+    {
+      "position": [
+        179.2,
+        128.0
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        151.20887727281104,
+        111.93047594597058
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        126.93402611962789,
+        96.9681048676569
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        99.61124902302488,
+        78.92652794192787
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        58.686171939843675,
+        50.02923370914541
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        45.46272441689119,
+        40.059322955468645
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        17.578212095467705,
+        17.636843803816276
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        1.0802683666415902,
+        3.5003136501279624
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        1.0802683666415902,
+        3.5003136501279624
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        1.0802683666415902,
+        3.5003136501279624
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        18.08040653738981,
+        19.237331711129915
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        30.33885070189038,
+        35.715408180459946
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        179.2,
+        128.0
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        168.0773596338713,
+        154.5681381841436
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        108.77188938734851,
+        37.870840890726406
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        104.07898457230837,
+        55.187674340035514
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        91.88786771918066,
+        72.00813450735242
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        1.0802683666415902,
+        3.5003136501279624
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        51.2,
+        128.0
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        98.09170777801792,
+        122.10413527272917
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        144.37561273095832,
+        131.97503079893087
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        51.2,
+        128.0
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        29.758318431899095,
+        163.85265449295434
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        144.37561273095832,
+        131.97503079893087
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        170.38306492509764,
+        120.07744995221195
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        194.24485630547665,
+        118.11447225176211
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        237.73210969829762,
+        129.9109134834136
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        144.37561273095832,
+        131.97503079893087
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        161.355979832558,
+        142.08677891466388
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        183.6249927951136,
+        160.46712155684725
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        161.355979832558,
+        142.08677891466388
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        157.5985128925299,
+        157.79625889649606
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        140.61829383285323,
+        157.82347782568195
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        123.54732733237661,
+        151.93803761200766
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        95.17374493707581,
+        129.66113901108753
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 6,
+      "shapeType": 1,
+      "diameter": 13.0,
+      "radius": 6.5
+    },
+    {
+      "position": [
+        128.0,
+        2.56
+      ],
+      "bodyType": 0,
+      "angle": 0.0,
+      "color": 4,
+      "shapeType": 2,
+      "diameter": 256.0511948810237,
+      "vertices": [
+        [
+          128.0,
+          2.56
+        ],
+        [
+          -128.0,
+          2.56
+        ],
+        [
+          -128.0,
+          -2.56
+        ],
+        [
+          128.0,
+          -2.56
+        ]
+      ]
+    }
+  ],
+  "relationship": {
+    "bodyId1": 4,
+    "bodyId2": 40,
+    "relationships": [
+      0
+    ]
+  },
+  "metadata": {
+    "description": "Make sure the green ball is touching the purple bar.",
+    "tier": 0
+  }
+}

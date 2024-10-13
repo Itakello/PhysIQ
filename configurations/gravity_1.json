@@ -1,0 +1,59 @@
+{
+    "level": 1,
+    "category": "gravity",
+    "screen_size": {
+        "width": 600,
+        "height": 600
+    },
+    "constants": {
+        "main_shape": "circle",
+        "obstacles": [
+            [
+                50,
+                200,
+                100,
+                200
+            ],
+            [
+                150,
+                150,
+                200,
+                150
+            ]
+        ],
+        "gravity": 9.81
+    },
+    "variables": [
+        {
+            "interested_object": {
+                "type": "circle",
+                "position": {
+                    "x": 100,
+                    "y": 300
+                },
+                "size": 10
+            },
+            "moving_objects": [
+                {
+                    "type": "circle",
+                    "position": {
+                        "x": 150,
+                        "y": 250
+                    },
+                    "size": 5
+                }
+            ],
+            "goal_area": {
+                "type": "container",
+                "position": {
+                    "x": 200,
+                    "y": 50
+                },
+                "dimensions": {
+                    "width": 30,
+                    "height": 30
+                }
+            }
+        }
+    ]
+}
