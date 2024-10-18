@@ -2,20 +2,15 @@
 
 ## Setup
 
-1. Create a virtual environment:
+1. Create a conda environment:
     ```sh
-    python -m venv venv
+    conda create -n myproject python=3.9
     ```
 
-2. Activate the virtual environment:
-    - On Windows:
-        ```sh
-        venv\Scripts\activate
-        ```
-    - On macOS/Linux:
-        ```sh
-        source venv/bin/activate
-        ```
+2. Activate the conda environment:
+    ```sh
+    conda activate myproject
+    ```
 
 3. Install dependencies:
     ```sh
@@ -25,3 +20,29 @@
 ## Usage
 
 Run the main application:
+```sh
+python main.py
+```
+
+This will iterate over all the levels. A play-stop button is present with the idea of adding other controls (e.g., solution) in the future.
+
+## Upcoming Features
+
+- Possibility to add other bodies (for next step)
+- Possibility to insert bodies without interpolation automatically/manually (for next step)
+- Possibility to verify solutions via goals
+- Brute-force add 1 solution to every level (by changing circle size/position)
+- Find way to find multiple correct and incorrect solutions by changing parameters programmatically
+- Creation of a static dataset (image + prompt + correct/incorrect) for fast execution
+- Possibility for an LVLM (Large Vision Language Model) to test it
+- Possibility to test multiple LVLMs by their Hugging Face model name
+- Level-creator environment to generate new starting configurations
+
+## Known Issues
+
+- Some solutions converted from Phyre may not be solutions in our environment with PyMunk or may be trivial
+
+## References
+
+- Phyre: [https://phyre.ai/](https://phyre.ai/)
+- PyMunk: [https://www.pymunk.org/en/latest/overview.html](https://www.pymunk.org/en/latest/overview.html)
