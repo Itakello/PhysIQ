@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from itakello_logging import ItakelloLogging
 
 from src.classes.shapes import BaseShape, Circle, Polygon
-from src.classes.tuples import Color, Position
+from src.classes.types import Color, Position
 from src.config import config
 
 from ..classes.shapes.compound import Compound
@@ -17,8 +17,7 @@ class ShapeManager(BaseManager):
     shapes: list[BaseShape] = field(default_factory=list)
 
     def create_shape(self, shape_data: dict) -> BaseShape:
-        rgba = config.COLORS[shape_data["color"]]
-        color = Color(rgba[0], rgba[1], rgba[2], rgba[3])
+        color = config.COLORS[shape_data["color"]]
         position = Position(shape_data["position"][0], shape_data["position"][1])
 
         shape_type = shape_data["shapeType"]

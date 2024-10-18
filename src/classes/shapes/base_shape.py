@@ -5,7 +5,7 @@ import pymunk
 from itakello_logging import ItakelloLogging
 
 from ...config import config
-from ..tuples import Color, Position
+from ..types import Color, Position
 
 logger = ItakelloLogging().get_logger(__name__)
 
@@ -28,13 +28,13 @@ class BaseShape(ABC):
                 moment=self.calculate_moment(),
                 body_type=pymunk.Body.DYNAMIC,
             )
-        self.body.position = self.position.to_tuple()
+        self.body.position = self.position.x_y
         self.create_shapes()
         for shape in self.shapes:
             shape.density = config.DEFAULT_DENSITY
             shape.friction = config.DEFAULT_FRICTION
             shape.elasticity = config.DEFAULT_RESTITUTION
-            shape.color = self.color.to_tuple()
+            shape.color = self.color.rgba
         logger.debug(f"Created {self.__class__.__name__} shape")
 
     @abstractmethod

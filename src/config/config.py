@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from ..classes.types.color import Color
+
 # Simulation constants
 SCREEN_SCALE_FACTOR = 2
 RESOLUTION_SCALE_FACTOR = 4
@@ -17,14 +19,16 @@ DEFAULT_LINEAR_DAMPING = 0.0
 
 # Color definitions
 COLORS = [
-    (243, 79, 70, 255),  # Red (0)
-    (24, 119, 242, 255),  # Green (1)
-    (107, 206, 187, 255),  # Blue (2)
-    (27, 121, 242, 255),  # Azure (3)
-    (75, 74, 164, 255),  # Pink (4)
-    (185, 202, 210, 255),  # Gray (5)
-    (0, 0, 0, 255),  # Black (6)
+    Color.from_preset(Color.Preset.RED),
+    Color.from_preset(Color.Preset.GREEN),
+    Color.from_preset(Color.Preset.BLUE),
+    Color.from_preset(Color.Preset.AZURE),
+    Color.from_preset(Color.Preset.PINK),
+    Color.from_preset(Color.Preset.GREY),
+    Color.from_preset(Color.Preset.BLACK),
 ]
 
 # Configuration directory
 CONFIG_DIR = Path("task_jsons")
+
+FONT_SIZE = 36

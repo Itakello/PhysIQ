@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import pygame
 from itakello_logging import ItakelloLogging
 
+from ..classes.button import Button
 from ..config import config
 from .base_m import BaseManager
 from .config_m import ConfigManager
@@ -15,6 +16,7 @@ logger = ItakelloLogging().get_logger(__name__)
 
 @dataclass
 class SimulationManager(BaseManager):
+    is_running: bool = True
     config_data: dict = field(default_factory=dict)
     config_filename: str | None = None
     screen: pygame.Surface | None = None
@@ -26,9 +28,12 @@ class SimulationManager(BaseManager):
     config_manager: ConfigManager = field(default_factory=ConfigManager)
     level_start_time: float = 0.0
     level_elapsed_time: float = 0.0
+    toggle_button: Button = field(init=False)
 
     def setup(self) -> None:
+        pygame.init()
         self.level_manager.load_levels()
+        self.toggle_button = Button(10, 10, 100, 50, "Stop")
 
     def _load_next_level(self) -> bool:
         # Clear the space and reset managers
@@ -80,20 +85,25 @@ class SimulationManager(BaseManager):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.toggle_button.is_clicked(event.pos):
+                        self.toggle_simulation()
+                        self.toggle_button.text = "Play" if self.is_running else "Stop"
 
             if self.sim_surface:
                 self.sim_surface.fill((255, 255, 255))
 
-                for _ in range(config.SIMULATION_STEPS_PER_FRAME):
-                    self.space_manager.custom_space.step(scaled_time_step)
+                if self.is_running:
+                    for _ in range(config.SIMULATION_STEPS_PER_FRAME):
+                        self.space_manager.custom_space.step(scaled_time_step)
 
                 self.space_manager.custom_space.draw()
+                self.toggle_button.draw(self.sim_surface)
 
                 if self.screen:
                     pygame.transform.smoothscale(
                         self.sim_surface, self.screen.get_size(), self.screen
                     )
-
                     pygame.display.flip()
 
             running = self._check_and_load_next_level()
@@ -101,3 +111,6 @@ class SimulationManager(BaseManager):
         # Ensure pygame is quit at the end
         pygame.quit()
         logger.confirmation("Simulation completed")
+
+    def toggle_simulation(self) -> None:
+        self.is_running = not self.is_running
