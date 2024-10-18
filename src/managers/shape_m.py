@@ -1,11 +1,15 @@
 from dataclasses import dataclass, field
 
+from itakello_logging import ItakelloLogging
+
 from src.classes.shapes import BaseShape, Circle, Polygon
 from src.classes.tuples import Color, Position
 from src.config import config
 
 from ..classes.shapes.compound import Compound
 from .base_m import BaseManager
+
+logger = ItakelloLogging().get_logger(__name__)
 
 
 @dataclass
@@ -68,3 +72,7 @@ class ShapeManager(BaseManager):
             shapes_data=shape_data["shapes"],
             angle=shape_data["angle"],
         )
+
+    def reset(self) -> None:
+        self.shapes = []
+        logger.debug("Shapes reset")

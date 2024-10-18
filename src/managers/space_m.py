@@ -9,10 +9,13 @@ from .base_m import BaseManager
 
 @dataclass
 class SpaceManager(BaseManager):
-    custom_space: CustomSpace = field(init=False, default=CustomSpace())
+    custom_space: CustomSpace = field(init=False, default_factory=CustomSpace)
 
     def link_screen(self, screen: pygame.Surface) -> None:
         self.custom_space.setup_draw_options(screen)
 
     def add_shapes(self, shapes: list[BaseShape]) -> None:
         self.custom_space.add_shapes(shapes)
+
+    def clear_space(self) -> None:
+        self.custom_space = CustomSpace()
