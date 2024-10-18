@@ -36,7 +36,12 @@ This will iterate over all the levels. A play-stop button is present with the id
 - Creation of a static dataset (image + prompt + correct/incorrect) for fast execution
 - Possibility for an LVLM (Large Vision Language Model) to test it
 - Possibility to test multiple LVLMs by their Hugging Face model name
-- Level-creator environment to generate new starting configurations
+
+## Future Complex Feature (Time Permitting)
+
+- Level-creator environment to generate new starting configurations:
+  - Create 1 starting configuration
+  - Programmatically generate 25 variations for easy scaling
 
 ## Known Issues
 
