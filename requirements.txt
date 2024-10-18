@@ -2,3 +2,4 @@ pymunk
 pygame
 jsonschema
 tqdm
+itakello_logging

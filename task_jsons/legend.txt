@@ -1,0 +1,32 @@
+
+Legend:
+
+bodyType:
+0 - Static
+1 - Dynamic
+
+shapeType:
+0 - Border
+1 - Circle
+2 - Polygon
+3 - Compound Shape
+
+color:
+0 - Red
+1 - Green
+2 - Blue
+3 - Yellow
+4 - Purple
+5 - Grey
+6 - Black
+
+relationships:
+0 - Touching (previously 6)
+1 - Inside (previously 7)
+2 - None (previously 8)
+
+tier:
+0 - BALL
+1 - TWO_BALLS
+2 - RAMP
+3 - VIRTUAL_TOOLS

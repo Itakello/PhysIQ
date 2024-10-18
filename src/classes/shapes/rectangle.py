@@ -14,9 +14,7 @@ class Rectangle(BaseShape):
     def calculate_moment(self) -> float:
         return pymunk.moment_for_box(self.mass, (self.width, self.height))
 
-    def create_shape(self) -> pymunk.Shape:
-        return pymunk.Poly.create_box(self.body, (self.width, self.height))
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
+    def create_shapes(self) -> None:
+        shape = pymunk.Poly.create_box(self.body, (self.width, self.height))
         self.body.angle = self.angle
+        self.shapes.append(shape)

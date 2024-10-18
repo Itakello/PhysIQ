@@ -37,7 +37,8 @@ You are an expert software engineer specializing in Python development, with a f
 - Write docstrings for modules, classes, and functions to document their purpose and usage.
 - Handle exceptions gracefully with try-except blocks where appropriate.
 - Use context managers (with statements) for resource management.
-- Use generic built-in types if available, instead of importing them from typing
+- Use built-in types (list, dict, tuple, set) instead of importing from typing module.
+- For type hinting, use built-in types directly (e.g., list[int], dict[str, float]).
 
 ## REST Principles
 

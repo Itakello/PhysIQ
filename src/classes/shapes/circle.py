@@ -16,5 +16,6 @@ class Circle(BaseShape):
             self.mass, 0, self.diameter / 2 + RADIUS_ADJUSTMENT
         )
 
-    def create_shape(self) -> pymunk.Shape:
-        return pymunk.Circle(self.body, self.diameter / 2 + RADIUS_ADJUSTMENT)
+    def create_shapes(self) -> None:
+        shape = pymunk.Circle(self.body, self.diameter / 2 + RADIUS_ADJUSTMENT)
+        self.shapes.append(shape)
