@@ -2,9 +2,9 @@
 
 ## Setup
 
-1. Create a conda environment:
+1. Create a conda environment with Python 3.10:
     ```sh
-    conda create -n myproject python=3.9
+    conda create -n myproject python=3.10
     ```
 
 2. Activate the conda environment:
