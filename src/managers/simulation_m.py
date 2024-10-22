@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 import pygame
 from itakello_logging import ItakelloLogging
 
-from ..classes.button import Button
 from ..config import config
 from .base_m import BaseManager
+from .button_m import ButtonManager
 from .config_m import ConfigManager
 from .level_m import LevelManager
 from .shape_m import ShapeManager
@@ -26,14 +26,16 @@ class SimulationManager(BaseManager):
     shape_manager: ShapeManager = field(default_factory=ShapeManager)
     level_manager: LevelManager = field(default_factory=LevelManager)
     config_manager: ConfigManager = field(default_factory=ConfigManager)
+    button_manager: ButtonManager = field(default_factory=ButtonManager)
     level_start_time: float = 0.0
     level_elapsed_time: float = 0.0
-    toggle_button: Button = field(init=False)
 
     def setup(self) -> None:
         pygame.init()
         self.level_manager.load_levels()
-        self.toggle_button = Button(10, 10, 100, 50, "Stop")
+        self.button_manager.add_button(10, 10, 100, 50, "Stop").on_click = (
+            self.toggle_simulation
+        )
 
     def _load_next_level(self) -> bool:
         # Clear the space and reset managers
@@ -86,10 +88,7 @@ class SimulationManager(BaseManager):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if self.toggle_button.is_clicked(event.pos):
-                        self.toggle_simulation()
-                        self.toggle_button.text = "Play" if self.is_running else "Stop"
+                self.button_manager.handle_event(event)
 
             if self.sim_surface:
                 self.sim_surface.fill((255, 255, 255))
@@ -99,7 +98,7 @@ class SimulationManager(BaseManager):
                         self.space_manager.custom_space.step(scaled_time_step)
 
                 self.space_manager.custom_space.draw()
-                self.toggle_button.draw(self.sim_surface)
+                self.button_manager.draw(self.sim_surface)
 
                 if self.screen:
                     pygame.transform.smoothscale(
@@ -115,3 +114,5 @@ class SimulationManager(BaseManager):
 
     def toggle_simulation(self) -> None:
         self.is_running = not self.is_running
+        toggle_button = self.button_manager.get_button(0)
+        toggle_button.text = "Play" if self.is_running else "Stop"

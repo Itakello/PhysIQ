@@ -32,3 +32,7 @@ COLORS = [
 CONFIG_DIR = Path("task_jsons")
 
 FONT_SIZE = 36
+
+# Add these lines to the existing config file
+PADDING_X = 20  # Horizontal padding
+PADDING_Y = 60  # Vertical padding (extra space for buttons)
