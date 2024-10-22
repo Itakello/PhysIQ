@@ -11,6 +11,12 @@ class LevelManager(BaseManager):
     levels: dict[str, Level] = field(default_factory=dict)
     current_level: Level | None = None
 
+    @property
+    def current_level_id(self) -> str | None:
+        if not self.current_level:
+            return None
+        return self.current_level.id
+
     def load_levels(self) -> None:
         config_files = CONFIG_DIR.glob("*.json")
         for config_file in config_files:

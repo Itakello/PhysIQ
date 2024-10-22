@@ -62,6 +62,7 @@ class SimulationManager(BaseManager):
 
         self.create_shapes()
         self.level_elapsed_time = 0.0
+        logger.confirmation(f"Loaded level {self.level_manager.current_level_id}")
         return True
 
     def create_shapes(self) -> None:

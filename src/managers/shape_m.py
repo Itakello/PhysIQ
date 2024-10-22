@@ -74,4 +74,4 @@ class ShapeManager(BaseManager):
 
     def reset(self) -> None:
         self.shapes = []
-        logger.debug("Shapes reset")
+        logger.warning("Shapes reset")

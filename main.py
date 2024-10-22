@@ -2,7 +2,9 @@ from itakello_logging import ItakelloLogging
 
 from src.managers import SimulationManager
 
-logger = ItakelloLogging(debug=True).get_logger(__name__)
+logger = ItakelloLogging(
+    debug=True, excluded_modules=["pymunk.space", "pymunk.shapes"]
+).get_logger(__name__)
 
 
 def main() -> None:
