@@ -1,0 +1,3 @@
+- [ ] Move surfaces to SurfaceManager
+- [ ] Remove start/stop button
+- [ ]
