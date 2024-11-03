@@ -55,14 +55,3 @@ class BaseShape(ABC):
 
     def get_filter(self) -> pymunk.ShapeFilter:
         return self.shape.filter
-
-    def get_collision_points(self) -> list[tuple[float, float]]:
-        """Get points to test for collision. Default implementation returns corners of bounding box."""
-        bb = self.get_bb()
-        return [
-            (bb.left, bb.bottom),
-            (bb.left, bb.top),
-            (bb.right, bb.bottom),
-            (bb.right, bb.top),
-            ((bb.left + bb.right) / 2, (bb.bottom + bb.top) / 2),  # Center point
-        ]

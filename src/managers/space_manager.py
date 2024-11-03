@@ -22,8 +22,6 @@ class SpaceManager(BaseManager):
         Check if the given shape would collide with any existing shapes in the space.
         Returns True if there is a collision, False otherwise.
         """
-        # Ensure physics state is updated
-        self.custom_space.space.step(0)  # Micro step to update physics state
 
         # Query the space using both BB and shape query for more accurate results
         bb_collisions = self.custom_space.space.bb_query(

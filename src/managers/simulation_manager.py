@@ -6,8 +6,7 @@ from itakello_logging import ItakelloLogging
 
 from ..config import config
 from .base_manager import BaseManager
-
-# from .button_m import ButtonManager
+from .button_manager import ButtonManager
 from .config_manager import ConfigManager
 from .level_manager import LevelManager
 from .shape_manager import ShapeManager
@@ -28,6 +27,7 @@ class SimulationManager(BaseManager):
     level_manager: LevelManager = field(default_factory=LevelManager)
     config_manager: ConfigManager = field(default_factory=ConfigManager)
     surface_manager: SurfaceManager = field(default_factory=SurfaceManager)
+    button_manager: ButtonManager = field(default_factory=ButtonManager)
 
     def setup(self) -> None:
         pygame.init()
@@ -41,23 +41,24 @@ class SimulationManager(BaseManager):
         scaled_time_step = fixed_time_step * config.TIME_SCALE
         running = self._load_next_level()
         while running:
-            dt = self.clock.tick(config.FPS) / 1000.0  # Convert to seconds
-            self.elapsed_time += dt
+            if self.is_running:
+                dt = self.clock.tick(config.FPS) / 1000.0  # Convert to seconds
+                self.elapsed_time += dt
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-                # self.button_manager.handle_event(event)
+                self.button_manager.handle_event(event)
 
             self.surface_manager.clear_sim_surface()
-
-            if not self.created_ball and self.elapsed_time > 5:
-                self.create_random_ball()
-                self.created_ball = True
 
             if self.is_running:
                 for _ in range(config.SIMULATION_STEPS_PER_FRAME):
                     self.space_manager.custom_space.step(scaled_time_step)
+
+            if not self.created_ball and self.elapsed_time > 5:
+                self.create_random_ball()
+                self.created_ball = True
 
             self.space_manager.custom_space.draw()
             self.surface_manager.scale_and_display()
