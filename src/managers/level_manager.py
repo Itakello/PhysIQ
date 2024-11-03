@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from src.classes.level import Level
 from src.config.config import CONFIG_DIR
 
-from .base_m import BaseManager
+from .base_manager import BaseManager
 
 
 @dataclass

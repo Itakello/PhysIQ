@@ -4,10 +4,9 @@ from itakello_logging import ItakelloLogging
 
 from src.classes.shapes import BaseShape, Circle, Polygon
 from src.classes.types import Color, Position
-from src.config import config
 
 from ..classes.shapes.compound import Compound
-from .base_m import BaseManager
+from .base_manager import BaseManager
 
 logger = ItakelloLogging().get_logger(__name__)
 
@@ -17,9 +16,8 @@ class ShapeManager(BaseManager):
     shapes: list[BaseShape] = field(default_factory=list)
 
     def create_shape(self, shape_data: dict) -> BaseShape:
-        color = config.COLORS[shape_data["color"]]
+        color = Color.from_preset(Color.Preset(shape_data["color"]))
         position = Position(shape_data["position"][0], shape_data["position"][1])
-
         shape_type = shape_data["shapeType"]
         shape_creators = {
             0: self._create_polygon,
@@ -68,7 +66,7 @@ class ShapeManager(BaseManager):
             color=color,
             position=position,
             body_type=shape_data["bodyType"],
-            shapes_data=shape_data["shapes"],
+            shape_data=shape_data["shapes"],
             angle=shape_data["angle"],
         )
 

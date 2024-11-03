@@ -13,7 +13,7 @@ class Polygon(BaseShape):
     def calculate_moment(self) -> float:
         return pymunk.moment_for_poly(self.mass, self.vertices)
 
-    def create_shapes(self) -> None:
+    def _get_shape(self) -> pymunk.Shape:
         shape = pymunk.Poly(self.body, self.vertices)
         self.body.angle = -self.angle
-        self.shapes.append(shape)
+        return shape

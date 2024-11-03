@@ -1,3 +1,3 @@
-- [ ] Move surfaces to SurfaceManager
-- [ ] Remove start/stop button
-- [ ]
+- [x] Move surfaces to SurfaceManager
+- [x] Remove start/stop button
+- [ ] Make the create a new method in SimulatorManager that create a ball in the simulation with random position and a random diameter (between a standard range), if an attempt is invalid (it interpolates with other bodies), make it retry until it does.

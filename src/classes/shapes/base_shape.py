@@ -17,7 +17,7 @@ class BaseShape(ABC):
     body_type: int
     mass: float = 1.0
     body: pymunk.Body = field(init=False)
-    shapes: list[pymunk.Shape] = field(init=False, default_factory=list)
+    shape: pymunk.Shape = field(init=False)
 
     def __post_init__(self) -> None:
         if self.body_type == 0:
@@ -29,21 +29,40 @@ class BaseShape(ABC):
                 body_type=pymunk.Body.DYNAMIC,
             )
         self.body.position = self.position.x_y
-        self.create_shapes()
-        for shape in self.shapes:
-            shape.density = config.DEFAULT_DENSITY
-            shape.friction = config.DEFAULT_FRICTION
-            shape.elasticity = config.DEFAULT_RESTITUTION
-            shape.color = self.color.rgba
-        logger.debug(f"Created {self.__class__.__name__} shape")
+        self.shape = self._get_shape()
+        self._set_defaults()
+        logger.debug(f"Created {self.__class__.__name__} shape [{self.position}] ")
 
     @abstractmethod
     def calculate_moment(self) -> float:
         raise NotImplementedError("Subclasses must implement calculate_moment method")
 
     @abstractmethod
-    def create_shapes(self) -> None:
+    def _get_shape(self) -> pymunk.Shape:
         raise NotImplementedError("Subclasses must implement create_shapes method")
 
+    def _set_defaults(self) -> None:
+        self.shape.density = config.DEFAULT_DENSITY
+        self.shape.friction = config.DEFAULT_FRICTION
+        self.shape.elasticity = config.DEFAULT_RESTITUTION
+        self.shape.color = self.color.rgba
+
     def add_to_space(self, space: pymunk.Space) -> None:
-        space.add(self.body, *self.shapes)
+        space.add(self.body, self.shape)
+
+    def get_bb(self) -> pymunk.BB:
+        return self.shape.bb
+
+    def get_filter(self) -> pymunk.ShapeFilter:
+        return self.shape.filter
+
+    def get_collision_points(self) -> list[tuple[float, float]]:
+        """Get points to test for collision. Default implementation returns corners of bounding box."""
+        bb = self.get_bb()
+        return [
+            (bb.left, bb.bottom),
+            (bb.left, bb.top),
+            (bb.right, bb.bottom),
+            (bb.right, bb.top),
+            ((bb.left + bb.right) / 2, (bb.bottom + bb.top) / 2),  # Center point
+        ]

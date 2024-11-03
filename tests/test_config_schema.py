@@ -3,12 +3,12 @@ import unittest
 
 from jsonschema import ValidationError, validate
 
-from src.config_schema import CONFIG_SCHEMA
+from src.config.config_schema import CONFIG_SCHEMA
 
 
 class TestConfigSchema(unittest.TestCase):
 
-    def test_valid_config(self):
+    def test_valid_config(self) -> None:
         with open("configurations/gravity_1.json", "r") as f:
             valid_config = json.load(f)
         try:
@@ -16,7 +16,7 @@ class TestConfigSchema(unittest.TestCase):
         except ValidationError:
             self.fail("Valid configuration failed schema validation")
 
-    def test_invalid_level(self):
+    def test_invalid_level(self) -> None:
         invalid_config = {
             "level": 0,  # Invalid: minimum is 1
             "category": "gravity",
@@ -134,4 +134,5 @@ class TestConfigSchema(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    unittest.main()
     unittest.main()
