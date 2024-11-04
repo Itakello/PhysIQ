@@ -31,12 +31,6 @@ class SpaceManager(BaseManager):
         # Filter out self-collisions
         collisions = [c for c in bb_collisions if c != shape.body]
 
-        # Additional point query for better accuracy
-        points_to_check = shape.get_collision_points()
-        for point in points_to_check:
-            if self.custom_space.space.point_query(point, 0, shape.get_filter()):
-                return True
-
         return len(collisions) > 0
 
     def clear_space(self) -> None:

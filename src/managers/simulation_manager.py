@@ -70,17 +70,14 @@ class SimulationManager(BaseManager):
         logger.confirmation("Simulation completed")
 
     def create_random_ball(self) -> bool:
-        MIN_RADIUS = 5
-        MAX_RADIUS = 20
-        MAX_ATTEMPTS = 10000
 
         assert self.surface_manager.sim_surface
         scene_width, scene_height = self.surface_manager.sim_surface.get_size()
         scene_width /= config.SCREEN_SCALE_FACTOR + 2
         scene_height /= config.SCREEN_SCALE_FACTOR + 2
 
-        for _ in range(MAX_ATTEMPTS):
-            radius = random.uniform(MIN_RADIUS, MAX_RADIUS)
+        for attempt in range(config.MAX_ATTEMPTS):
+            radius = random.uniform(config.MIN_RADIUS, config.MAX_RADIUS)
             # Position considers radius to keep ball within bounds
             x = random.uniform(radius, scene_width - radius)
             y = random.uniform(radius, scene_height - radius)
@@ -101,6 +98,7 @@ class SimulationManager(BaseManager):
             # Check for collisions with existing bodies
             if not self.space_manager.check_shape_collision(ball_shape):
                 self.space_manager.add_shapes([ball_shape])
+                logger.debug(f"CREATED random ball at attempt: {attempt}")
                 return True
 
         logger.warning(

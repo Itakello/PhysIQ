@@ -23,8 +23,9 @@ class ButtonManager(BaseManager):
             pos = pygame.mouse.get_pos()
             for button in self.buttons:
                 if button.rect.collidepoint(pos):
-                    if button.on_click:
-                        button.on_click()
+                    pass
+                    # if button.on_click:
+                    # button.on_click()
 
     def draw(self, surface: pygame.Surface) -> None:
         for button in self.buttons:

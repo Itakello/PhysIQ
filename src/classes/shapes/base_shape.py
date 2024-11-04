@@ -51,7 +51,7 @@ class BaseShape(ABC):
         space.add(self.body, self.shape)
 
     def get_bb(self) -> pymunk.BB:
-        return self.shape.bb
+        return self.shape.cache_bb()
 
     def get_filter(self) -> pymunk.ShapeFilter:
         return self.shape.filter
