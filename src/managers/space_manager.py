@@ -40,5 +40,5 @@ class SpaceManager(BaseManager):
 
     def get_collision_handler(self, config_data: dict) -> pymunk.CollisionHandler:
         return self.custom_space.get_collision_handler(
-            config_data["bodyId1"], config_data["bodyId2"]
+            config_data["bodyId1"] + 1, config_data["bodyId2"] + 1
         )

@@ -2,7 +2,6 @@ import random
 from dataclasses import dataclass, field
 
 import pygame
-import pymunk
 from itakello_logging import ItakelloLogging
 
 from ..classes.shapes.circle import Circle
