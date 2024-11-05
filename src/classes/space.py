@@ -39,3 +39,9 @@ class CustomSpace:
 
     def draw(self) -> None:
         self.space.debug_draw(self.draw_options)
+
+    def get_collision_handler(
+        self, body_id_1: int, body_id_2: int
+    ) -> pymunk.CollisionHandler:
+        """Delegates wildcard collision handler creation to the underlying pymunk space"""
+        return self.space.add_collision_handler(body_id_1, body_id_2)

@@ -12,12 +12,13 @@ logger = ItakelloLogging().get_logger(__name__)
 
 @dataclass
 class BaseShape(ABC):
+    idx: int
     color: Color
     position: Position
     body_type: int
     mass: float = 1.0
     body: pymunk.Body = field(init=False)
-    shape: pymunk.Shape = field(init=False)
+    shapes: list[pymunk.Shape] = field(init=False, default_factory=list)
 
     def __post_init__(self) -> None:
         if self.body_type == 0:
@@ -29,7 +30,7 @@ class BaseShape(ABC):
                 body_type=pymunk.Body.DYNAMIC,
             )
         self.body.position = self.position.x_y
-        self.shape = self._get_shape()
+        self.shapes = self.get_shapes()
         self._set_defaults()
         logger.debug(f"Created {self.__class__.__name__} shape [{self.position}] ")
 
@@ -38,20 +39,22 @@ class BaseShape(ABC):
         raise NotImplementedError("Subclasses must implement calculate_moment method")
 
     @abstractmethod
-    def _get_shape(self) -> pymunk.Shape:
-        raise NotImplementedError("Subclasses must implement create_shapes method")
+    def get_shapes(self) -> list[pymunk.Shape]:
+        raise NotImplementedError("Subclasses must implement get_shapes method")
 
     def _set_defaults(self) -> None:
-        self.shape.density = config.DEFAULT_DENSITY
-        self.shape.friction = config.DEFAULT_FRICTION
-        self.shape.elasticity = config.DEFAULT_RESTITUTION
-        self.shape.color = self.color.rgba
+        # add_sensor = self.idx > 4
+        for shape in self.shapes:
+            shape.density = config.DEFAULT_DENSITY
+            shape.friction = config.DEFAULT_FRICTION
+            shape.elasticity = config.DEFAULT_RESTITUTION
+            shape.color = self.color.rgba
+            shape.collision_type = self.idx
+            # shape.sensor = True
+            """if add_sensor:
+                shape.collision_type = self.idx
+            else:
+                shape.collision_type = 0"""
 
     def add_to_space(self, space: pymunk.Space) -> None:
-        space.add(self.body, self.shape)
-
-    def get_bb(self) -> pymunk.BB:
-        return self.shape.cache_bb()
-
-    def get_filter(self) -> pymunk.ShapeFilter:
-        return self.shape.filter
+        space.add(self.body, *self.shapes)

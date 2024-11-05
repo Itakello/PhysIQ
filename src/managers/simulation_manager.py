@@ -1,12 +1,15 @@
-import random  # Add this import
+import random
 from dataclasses import dataclass, field
 
 import pygame
+import pymunk
 from itakello_logging import ItakelloLogging
 
+from ..classes.shapes.circle import Circle
 from ..config import config
 from .base_manager import BaseManager
 from .button_manager import ButtonManager
+from .collision_manager import CollisionManager
 from .config_manager import ConfigManager
 from .level_manager import LevelManager
 from .shape_manager import ShapeManager
@@ -28,6 +31,7 @@ class SimulationManager(BaseManager):
     config_manager: ConfigManager = field(default_factory=ConfigManager)
     surface_manager: SurfaceManager = field(default_factory=SurfaceManager)
     button_manager: ButtonManager = field(default_factory=ButtonManager)
+    collision_manager: CollisionManager = field(default_factory=CollisionManager)
 
     def setup(self) -> None:
         pygame.init()
@@ -56,9 +60,14 @@ class SimulationManager(BaseManager):
                 for _ in range(config.SIMULATION_STEPS_PER_FRAME):
                     self.space_manager.custom_space.step(scaled_time_step)
 
-            if not self.created_ball and self.elapsed_time > 5:
+            if (
+                not self.created_ball
+                and self.elapsed_time > config.SOLUTION_INTRODUCTION_TIME
+            ):
                 self.create_random_ball()
                 self.created_ball = True
+
+            self._display_info()
 
             self.space_manager.custom_space.draw()
             self.surface_manager.scale_and_display()
@@ -93,10 +102,14 @@ class SimulationManager(BaseManager):
             }
 
             # Create the shape
-            ball_shape = self.shape_manager.create_shape(ball_config)
+            shapes_present = len(self.shape_manager.shapes)
+            ball_shape = self.shape_manager.create_shape(
+                shapes_present + 1, ball_config
+            )
+            assert type(ball_shape) is Circle
 
             # Check for collisions with existing bodies
-            if not self.space_manager.check_shape_collision(ball_shape):
+            if not self.space_manager.check_collisions(ball_shape):
                 self.space_manager.add_shapes([ball_shape])
                 logger.debug(f"CREATED random ball at attempt: {attempt}")
                 return True
@@ -112,8 +125,36 @@ class SimulationManager(BaseManager):
         assert toggle_button
         toggle_button.text = "Play" if self.is_running else "Stop" """
 
+    def _display_info(self) -> None:
+        font = pygame.font.Font(None, 20)
+        assert self.surface_manager.screen
+        self.surface_manager.screen.blit(
+            font.render(
+                "Left click to switch shape type, right click to rotate. (The shape follows the mouse)",
+                True,
+                pygame.Color("black"),
+            ),
+            (5, 5),
+        )
+
+        y = 30
+        assert self.collision_manager.handler
+        for k in self.collision_manager.handler.data["log"]:
+            self.surface_manager.screen.blit(
+                font.render(
+                    f"{k}: {self.collision_manager.handler.data['log'][k]}",
+                    True,
+                    pygame.Color("black"),
+                ),
+                (5, y),
+            )
+            y += 20
+
     def _add_bodies(self, bodies_data: list[dict]) -> None:
-        bodies = [self.shape_manager.create_shape(body) for body in bodies_data]
+        bodies = [
+            self.shape_manager.create_shape(idx + 1, body)
+            for idx, body in enumerate(bodies_data)
+        ]
         self.space_manager.add_shapes(bodies)
 
     def _load_next_level(self) -> bool:
@@ -131,6 +172,9 @@ class SimulationManager(BaseManager):
 
         config_data = self.config_manager.load_config(config_filename)
 
+        handler = self.space_manager.get_collision_handler(config_data["relationship"])
+        self.collision_manager.setup_collision_handler(handler)
+
         scene_dimensions = config_data["scene_dimensions"]
         self.surface_manager.create_surfaces(scene_dimensions)
         pygame.display.set_caption(f"Pymunk Simulation - {config_filename}")
@@ -140,6 +184,7 @@ class SimulationManager(BaseManager):
         self._add_bodies(config_data["bodies"])
         self.elapsed_time = 0.0
         logger.confirmation(f"Loaded level {self.level_manager.current_level_id}")
+
         return True
 
     def _check_and_load_next_level(self) -> bool:

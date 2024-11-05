@@ -15,7 +15,7 @@ logger = ItakelloLogging().get_logger(__name__)
 class ShapeManager(BaseManager):
     shapes: list[BaseShape] = field(default_factory=list)
 
-    def create_shape(self, shape_data: dict) -> BaseShape:
+    def create_shape(self, idx: int, shape_data: dict) -> BaseShape:
         color = Color.from_preset(Color.Preset(shape_data["color"]))
         position = Position(shape_data["position"][0], shape_data["position"][1])
         shape_type = shape_data["shapeType"]
@@ -31,17 +31,19 @@ class ShapeManager(BaseManager):
         if not creator:
             raise ValueError(f"Unsupported shape type: {shape_type}")
 
-        shape = creator(shape_data, color, position)
+        shape = creator(idx, shape_data, color, position)
         self.shapes.append(shape)
         return shape
 
     def _create_circle(
         self,
+        idx: int,
         shape_data: dict,
         color: Color,
         position: Position,
     ) -> Circle:
         return Circle(
+            idx=idx,
             color=color,
             position=position,
             body_type=shape_data["bodyType"],
@@ -49,9 +51,10 @@ class ShapeManager(BaseManager):
         )
 
     def _create_polygon(
-        self, shape_data: dict, color: Color, position: Position
+        self, idx: int, shape_data: dict, color: Color, position: Position
     ) -> Polygon:
         return Polygon(
+            idx=idx,
             color=color,
             position=position,
             body_type=shape_data["bodyType"],
@@ -60,13 +63,14 @@ class ShapeManager(BaseManager):
         )
 
     def _create_compound(
-        self, shape_data: dict, color: Color, position: Position
+        self, idx: int, shape_data: dict, color: Color, position: Position
     ) -> Compound:
         return Compound(
+            idx=idx,
             color=color,
             position=position,
             body_type=shape_data["bodyType"],
-            shape_data=shape_data["shapes"],
+            shapes_data=shape_data["shapes"],
             angle=shape_data["angle"],
         )
 

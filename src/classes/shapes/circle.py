@@ -16,5 +16,11 @@ class Circle(BaseShape):
             self.mass, 0, self.diameter / 2 + RADIUS_ADJUSTMENT
         )
 
-    def _get_shape(self) -> pymunk.Shape:
-        return pymunk.Circle(self.body, self.diameter / 2 + RADIUS_ADJUSTMENT)
+    def get_shapes(self) -> list[pymunk.Shape]:
+        return [pymunk.Circle(self.body, self.diameter / 2 + RADIUS_ADJUSTMENT)]
+
+    def get_bb(self) -> pymunk.BB:
+        return self.shapes[0].cache_bb()
+
+    def get_filter(self) -> pymunk.ShapeFilter:
+        return self.shapes[0].filter
