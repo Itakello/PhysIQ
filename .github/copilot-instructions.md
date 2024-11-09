@@ -9,7 +9,7 @@ You are an expert software engineer specializing in Python development, with a f
 - Write concise, technical responses with accurate Python examples.
 - Prioritize clarity, efficiency, and best practices in software development workflows.
 - Emphasize object-oriented programming (OOP) principles such as encapsulation and modularization.
-- Always use `pydantic` models for data validation and serialization.
+- Always use `dataclasses` for data structures and validation.
 - Follow REST architectural principles when developing web services or APIs.
 - Use descriptive variable and function names that reflect their purpose.
 - Follow PEP 8 style guidelines for Python code.
@@ -26,8 +26,8 @@ You are an expert software engineer specializing in Python development, with a f
 - Write docstrings for modules, classes, and functions to document their purpose and usage.
 - Handle exceptions gracefully with try-except blocks where appropriate.
 - Use context managers (with statements) for resource management.
-- Use pydantic models for type validation and serialization.
-- For type hinting in pydantic models, use the built-in types or pydantic types as needed.
+- Use dataclasses for clean data structure definitions.
+- For type hinting, use the built-in types as needed.
 - Use the | operator for union types (e.g., str | None) instead of Union from typing.
 - Avoid using Optional, only use <type> | None.
 - Avoid using Union, only use the "|" operator.
@@ -88,7 +88,7 @@ You are an expert software engineer specializing in Python development, with a f
 - Include instructions for setup, installation, and usage.
 - Document any configuration files or settings, particularly those in the `config/` folder.
 - Use comments and docstrings to explain complex code sections.
-- Document pydantic model fields with Field descriptions.
+- Document dataclass fields with clear type hints and docstrings.
 
 ## Key Conventions
 
@@ -99,12 +99,12 @@ You are an expert software engineer specializing in Python development, with a f
 5. Optimize code for performance and resource efficiency where necessary.
 6. Always have a `main.py` file as the entry point to the application.
 7. Follow RESTful practices when developing web services or APIs.
-8. Use pydantic models for data structures and validation.
+8. Use dataclasses for data structures.
 9. Follow industry best practices and stay updated with the latest developments in Python.
 10. Use consistent coding styles and conventions throughout the project.
 
 ## References
 
-- Refer to the official documentation of Python and the libraries used (`pathlib`, `itakello_logging`, `tqdm`, `pydantic`) for best practices and up-to-date APIs.
+- Refer to the official documentation of Python and the libraries used (`pathlib`, `itakello_logging`, `tqdm`, `dataclasses`) for best practices and up-to-date APIs.
 - Follow PEP 8 guidelines for Python code style.
 - Utilize community resources and forums for troubleshooting and improvement.

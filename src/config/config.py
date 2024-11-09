@@ -24,9 +24,6 @@ MIN_RADIUS = 5
 MAX_RADIUS = 20
 MAX_ATTEMPTS = 10000
 
-# Configuration directory
-CONFIG_DIR = Path("task_jsons")
-
 # Aspect constants
 FONT_SIZE = 36
 PADDING_X = 20  # Horizontal padding

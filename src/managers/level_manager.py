@@ -1,15 +1,26 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from src.classes.level import Level
-from src.config.config import CONFIG_DIR
 
 from .base_manager import BaseManager
 
 
 @dataclass
 class LevelManager(BaseManager):
+    categories: list[str] = []
     levels: dict[str, Level] = field(default_factory=dict)
     current_level: Level | None = None
+
+    def __post_init__(self) -> None:
+        data_path = Path("data")
+        categories = [d.name for d in data_path.iterdir() if d.is_dir()]
+        for category in categories:
+            self.categories.append(category)
+            levels = [d.name for d in (data_path / category).iterdir() if d.is_dir()]
+            for level in levels:
+                level_id = f"{category}_{level}"
+                self.levels[level_id] = Level(id=level_id)
 
     @property
     def current_level_id(self) -> str | None:
