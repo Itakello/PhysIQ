@@ -20,8 +20,12 @@ class LevelManager(BaseManager):
             for level in levels:
                 self.levels[level] = Level(id=level, category=category)
 
-    def get_levels_first_tasks(self) -> list[Task]:
-        return [level.get_first_iteration() for level in self.levels.values()]
+    def get_levels_first_tasks(self, starting_level: str = "00000") -> list[Task]:
+        return [
+            level.get_first_iteration()
+            for name, level in self.levels.items()
+            if name >= starting_level
+        ]
 
     def get_levels_all_tasks(self) -> list[Task]:
         tasks = []

@@ -1,8 +1,6 @@
-import random
 from dataclasses import dataclass, field
 from typing import Literal
 
-import pygame
 import pymunk
 from itakello_logging import ItakelloLogging
 
@@ -14,27 +12,28 @@ from .types import Color, Position
 logger = ItakelloLogging().get_logger(__name__)
 
 
-def begin(arbiter, space, data) -> Literal[True]:
+def begin(arbiter: pymunk.Arbiter, space: CustomSpace, data: dict) -> Literal[True]:
     shapes = tuple(sorted([arbiter.shapes[0], arbiter.shapes[1]], key=id))
-    data["collisions"][shapes] = space.time
+    data["collisions"][shapes] = space.elapsed_time
     logger.debug(f"Shapes {shapes} have started colliding.")
     return True
 
 
-def pre_solve(arbiter, space, data) -> Literal[True]:
+def pre_solve(arbiter: pymunk.Arbiter, space: CustomSpace, data: dict) -> Literal[True]:
     shapes = tuple(sorted([arbiter.shapes[0], arbiter.shapes[1]], key=id))
     start_time = data["collisions"].get(shapes)
     if start_time is not None:
-        elapsed_time = space.time - start_time
+        elapsed_time = space.elapsed_time - start_time
         if elapsed_time >= config.COLLISION_DURATION_THRESHOLD:
-            print(
+            logger.confirmation(
                 f"Shapes {shapes} have been colliding for {elapsed_time:.2f} seconds."
             )
+            data["goal_reached"] = True
             del data["collisions"][shapes]
     return True
 
 
-def separate(arbiter, space, data) -> None:
+def separate(arbiter: pymunk.Arbiter, space: CustomSpace, data: dict) -> None:
     shapes = tuple(sorted([arbiter.shapes[0], arbiter.shapes[1]], key=id))
     if shapes in data["collisions"]:
         logger.debug(f"Shapes {shapes} have stopped colliding.")
@@ -51,14 +50,15 @@ class Task:
     space: CustomSpace = field(init=False, default_factory=CustomSpace)
     bodies: list[BaseBody] = field(init=False, default_factory=list)
     handler: pymunk.CollisionHandler = field(init=False)
+    initial_bodies_config: list[dict] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         self.bodies = [
             self.create_body(idx + 1, body) for idx, body in enumerate(self.bodies_data)
         ]
         self.space.add_bodies(self.bodies)
-        # self.handler = self.space.add_collision_handler(*self.collision_pair_indices)
-        # self._setup_collision_handler()
+        self.handler = self.space.add_collision_handler(*self.collision_pair_indices)
+        self._setup_collision_handler()
 
     def create_body(self, idx: int, data: dict) -> BaseBody:
         color = Color.from_preset(Color.Preset(data["color"]))
@@ -120,9 +120,15 @@ class Task:
         )
 
     def reset(self) -> None:
-        self.bodies = []
-        logger.warning("Shapes reset")
-        logger.warning("Shapes reset")
+        """Reset task to initial state."""
+        self.space.clear()
+        self.space.elapsed_time = 0.0
+        self.bodies = [
+            self.create_body(idx + 1, body) for idx, body in enumerate(self.bodies_data)
+        ]
+        self.space.add_bodies(self.bodies)
+        self.handler = self.space.add_collision_handler(*self.collision_pair_indices)
+        self._setup_collision_handler()
         logger.warning("Shapes reset")
 
     def __str__(self) -> str:
@@ -130,6 +136,7 @@ class Task:
 
     def _setup_collision_handler(self) -> None:
         self.handler.data["collisions"] = {}
+        self.handler.data["goal_reached"] = False
         self.handler.begin = begin
         self.handler.pre_solve = pre_solve
         self.handler.separate = separate

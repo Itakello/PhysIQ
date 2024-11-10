@@ -12,6 +12,7 @@ from .shapes.circle import Circle
 
 @dataclass
 class CustomSpace(pymunk.Space):
+    elapsed_time: float = field(init=False, default=0.0)
     _draw_options: pymunk.pygame_util.DrawOptions | None = field(
         init=False, default=None
     )
@@ -59,3 +60,9 @@ class CustomSpace(pymunk.Space):
         collisions = [c for c in bb_collisions if c != circle.body]
 
         return len(collisions) > 0
+
+    def clear(self) -> None:
+        """Remove all bodies and constraints from the space."""
+        for body in self.bodies:
+            self.remove(body, *body.shapes)
+        self.elapsed_time = 0.0

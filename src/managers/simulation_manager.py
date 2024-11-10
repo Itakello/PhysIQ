@@ -15,7 +15,6 @@ logger = ItakelloLogging().get_logger(__name__)
 
 @dataclass
 class SimulationManager(BaseManager):
-    elapsed_time: float = 0.0
     show_visualization: bool = True
     task: Task = field(init=False)
     clock: pygame.time.Clock = field(default_factory=pygame.time.Clock)
@@ -24,15 +23,16 @@ class SimulationManager(BaseManager):
     def __post_init__(self) -> None:
         if self.show_visualization:
             pygame.init()
-        self.surface_manager.create_surfaces()
+            self.surface_manager.create_surfaces()
 
     def load_task(self, task: Task) -> bool:
         pygame.display.set_caption(
             f"Pymunk Simulation - {task.category}:{task.id}:{task.idx}"
         )
-        task.space.link_screen(self.surface_manager.sim_surface)
+        if self.show_visualization:
+            task.space.link_screen(self.surface_manager.sim_surface)
         self.task = task
-        self.elapsed_time = 0.0
+        self.task.space.elapsed_time = 0.0
         logger.confirmation(f"Loaded task: {task}")
 
         return True
@@ -55,7 +55,7 @@ class SimulationManager(BaseManager):
 
         while True:
             dt = self.clock.tick(config.FPS) / 1000.0
-            self.elapsed_time += dt
+            self.task.space.elapsed_time += dt
 
             if self.show_visualization:
                 for event in pygame.event.get():
@@ -73,13 +73,16 @@ class SimulationManager(BaseManager):
                 self.task.space.draw()
                 self.surface_manager.scale_and_display()
 
+            if self.task.handler.data["goal_reached"]:
+                return True
+
             # Time limit check
-            if self.elapsed_time >= config.SIMULATION_EXAMPLE_DURATION:
+            if self.task.space.elapsed_time >= config.SIMULATION_EXAMPLE_DURATION:
                 return False
 
     def find_proposal(self) -> None:
-        attempt = 0
-        while attempt < config.MAX_ATTEMPTS:
+        attempts = 0
+        while attempts < config.MAX_ATTEMPTS:
             radius = random.uniform(config.MIN_RADIUS, config.MAX_RADIUS)
             # Position considers radius to keep ball within bounds
             x = random.uniform(radius, config.SCENE_DIMENSIONS[0] - radius)
@@ -102,18 +105,27 @@ class SimulationManager(BaseManager):
             # Check for collisions with existing bodies
             if not self.task.space.check_collisions(ball):
                 self.task.space.add_body(ball)
-                logger.confirmation(
-                    f"Found valid position for ball at attempt: {attempt}"
-                )
+                logger.debug(f"Found valid position for ball at attempt: {attempts}")
                 if self.test_goal():
-                    logger.confirmation(f"Found correct proposal at attempt: {attempt}")
+                    logger.confirmation(
+                        f"Found correct proposal at attempt: {attempts}"
+                    )
                     return
                 else:
-                    self.task.space.remove_body(ball)
-
-            attempt += 1
+                    self.reset_task()
+            attempts += 1
 
         logger.warning(
             "Could not find valid position for random ball after max attempts"
         )
-        return None
+        return
+
+    def reset_task(self) -> None:
+        """Reset the current task to its initial state."""
+        self.task.reset()
+
+        # Ensure visualization is properly set up
+        if self.show_visualization:
+            self.task.space.link_screen(self.surface_manager.sim_surface)
+
+        logger.debug(f"Reset task: {self.task}")
