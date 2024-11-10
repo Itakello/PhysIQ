@@ -12,8 +12,6 @@ from .shapes.circle import Circle
 
 @dataclass
 class CustomSpace(pymunk.Space):
-    gravity: tuple[float, float] = (0, config.DEFAULT_GRAVITY)
-    iterations: int = config.SPACE_ITERATIONS
     _draw_options: pymunk.pygame_util.DrawOptions | None = field(
         init=False, default=None
     )
@@ -26,8 +24,8 @@ class CustomSpace(pymunk.Space):
 
     def __post_init__(self) -> None:
         super().__init__()
-        self.gravity = self.gravity
-        self.iterations = self.iterations
+        self.gravity = (0, config.DEFAULT_GRAVITY)
+        self.iterations = config.SPACE_ITERATIONS
 
     def add_body(self, body: BaseBody) -> None:
         self.add(body.body, *body.shapes)

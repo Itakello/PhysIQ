@@ -60,9 +60,6 @@ class Task:
         # self.handler = self.space.add_collision_handler(*self.collision_pair_indices)
         # self._setup_collision_handler()
 
-    def link_screen(self, screen: pygame.Surface) -> None:
-        self.space.link_screen(screen)
-
     def create_body(self, idx: int, data: dict) -> BaseBody:
         color = Color.from_preset(Color.Preset(data["color"]))
         position = Position(data["position"][0], data["position"][1])

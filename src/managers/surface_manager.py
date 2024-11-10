@@ -8,24 +8,36 @@ from .base_manager import BaseManager
 
 @dataclass
 class SurfaceManager(BaseManager):
-    screen: pygame.Surface | None = None
-    sim_surface: pygame.Surface | None = None
+    _screen: pygame.Surface | None = None
+    _sim_surface: pygame.Surface | None = None
+
+    @property
+    def screen(self) -> pygame.Surface:
+        if not self._screen:
+            raise ValueError("Screen surface not created.")
+        return self._screen
+
+    @property
+    def sim_surface(self) -> pygame.Surface:
+        if not self._sim_surface:
+            raise ValueError("Simulation surface not created.")
+        return self._sim_surface
 
     def create_surfaces(self) -> None:
-        self.screen = pygame.display.set_mode(
+        self._screen = pygame.display.set_mode(
             [dim * config.SCREEN_SCALE_FACTOR for dim in config.SCENE_DIMENSIONS]
         )
-        self.sim_surface = pygame.Surface(
+        self._sim_surface = pygame.Surface(
             [dim * config.RESOLUTION_SCALE_FACTOR for dim in config.SCENE_DIMENSIONS]
         )
 
     def clear_sim_surface(self) -> None:
-        if self.sim_surface:
-            self.sim_surface.fill((255, 255, 255))
+        if self._sim_surface:
+            self._sim_surface.fill((255, 255, 255))
 
     def scale_and_display(self) -> None:
-        if self.sim_surface and self.screen:
+        if self._sim_surface and self.screen:
             pygame.transform.smoothscale(
-                self.sim_surface, self.screen.get_size(), self.screen
+                self._sim_surface, self.screen.get_size(), self.screen
             )
             pygame.display.flip()

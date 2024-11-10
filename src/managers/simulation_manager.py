@@ -22,16 +22,15 @@ class SimulationManager(BaseManager):
     surface_manager: SurfaceManager = field(default_factory=SurfaceManager)
 
     def __post_init__(self) -> None:
-        pygame.init()
+        if self.show_visualization:
+            pygame.init()
         self.surface_manager.create_surfaces()
 
     def load_task(self, task: Task) -> bool:
         pygame.display.set_caption(
             f"Pymunk Simulation - {task.category}:{task.id}:{task.idx}"
         )
-
-        assert self.surface_manager.sim_surface
-        task.link_screen(self.surface_manager.sim_surface)
+        task.space.link_screen(self.surface_manager.sim_surface)
         self.task = task
         self.elapsed_time = 0.0
         logger.confirmation(f"Loaded task: {task}")
@@ -40,6 +39,11 @@ class SimulationManager(BaseManager):
 
     def toggle_visualization(self) -> None:
         """Toggle the visualization state."""
+        if self.show_visualization:
+            pygame.quit()
+        else:
+            pygame.init()
+            self.surface_manager.create_surfaces()
         self.show_visualization = not self.show_visualization
         logger.confirmation(
             f"Visualization {'enabled' if self.show_visualization else 'disabled'}"
