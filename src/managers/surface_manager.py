@@ -11,12 +11,12 @@ class SurfaceManager(BaseManager):
     screen: pygame.Surface | None = None
     sim_surface: pygame.Surface | None = None
 
-    def create_surfaces(self, scene_dimensions: list[int]) -> None:
+    def create_surfaces(self) -> None:
         self.screen = pygame.display.set_mode(
-            [dim * config.SCREEN_SCALE_FACTOR for dim in scene_dimensions]
+            [dim * config.SCREEN_SCALE_FACTOR for dim in config.SCENE_DIMENSIONS]
         )
         self.sim_surface = pygame.Surface(
-            [dim * config.RESOLUTION_SCALE_FACTOR for dim in scene_dimensions]
+            [dim * config.RESOLUTION_SCALE_FACTOR for dim in config.SCENE_DIMENSIONS]
         )
 
     def clear_sim_surface(self) -> None:

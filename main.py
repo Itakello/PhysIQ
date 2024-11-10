@@ -10,9 +10,13 @@ logger = ItakelloLogging(
 def main() -> None:
     simulation_manager = SimulationManager()
     level_manager = LevelManager()
-    level_manager.load_levels()
-    simulation_manager.setup()
-    simulation_manager.run()
+    tasks = level_manager.get_levels_first_tasks()
+    for task in tasks:
+        simulation_manager.load_task(task)
+        simulation_manager.find_proposal()
+        simulation_manager.test_goal()
+        # simulation_manager.add_solution()
+        # simulation_manager.run_simulation()
 
 
 if __name__ == "__main__":

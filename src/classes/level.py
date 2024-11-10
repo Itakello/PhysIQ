@@ -1,22 +1,46 @@
-from dataclasses import dataclass, field
+import json
+from dataclasses import dataclass
+from pathlib import Path
+
+from .task import Task
 
 
 @dataclass
 class Level:
     id: str
-    _iterations: list[str] = field(default_factory=list)
-    _current_iteration: str = field(init=False)
+    category: str
 
-    def get_next_iteration(self) -> str | None:
-        if not self._iterations:
-            return None
-        self._current_iteration = self._iterations.pop(0)
-        return self._current_iteration
+    def __post_init__(self) -> None:
+        self.path = Path(f"data/{self.category}/{self.id}")
+        self.tasks = [d.name for d in self.path.iterdir() if d.is_dir()]
 
-    def add_iteration(self, iteration: str) -> None:
-        if iteration not in self._iterations:
-            self._iterations.append(iteration)
-            self._iterations.sort()
+    def get_first_iteration(self) -> Task:
+        data = json.loads((self.path / self.tasks[0] / "data.json").read_text())
+        return Task(
+            id=self.id,
+            category=self.category,
+            idx=self.tasks[0],
+            bodies_data=data["bodies"],
+            collision_pair_indices=(
+                data["relationship"]["bodyId1"] + 1,
+                data["relationship"]["bodyId2"] + 1,
+            ),
+        )
 
-    def has_more_iterations(self) -> bool:
-        return bool(self._iterations)
+    def get_all_iterations(self) -> list[Task]:
+        tasks = []
+        for task in self.tasks:
+            data = json.loads((self.path / task / "data.json").read_text())
+            tasks.append(
+                Task(
+                    id=self.id,
+                    category=self.category,
+                    idx=task,
+                    bodies_data=data["bodies"],
+                    collision_pair_indices=(
+                        data["relationship"]["bodyId1"] + 1,
+                        data["relationship"]["bodyId2"] + 1,
+                    ),
+                )
+            )
+        return tasks

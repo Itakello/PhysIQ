@@ -2,11 +2,11 @@ from dataclasses import dataclass
 
 import pymunk
 
-from .base_shape import BaseShape
+from .base_shape import BaseBody
 
 
 @dataclass(kw_only=True)
-class Polygon(BaseShape):
+class Polygon(BaseBody):
     vertices: list[tuple[float, float]]
     angle: float = 0.0
 

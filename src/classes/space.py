@@ -4,44 +4,60 @@ import pygame
 import pymunk
 import pymunk.pygame_util
 
-from src.classes.shapes import BaseShape
+from src.classes.shapes import BaseBody
 from src.config import config
+
+from .shapes.circle import Circle
 
 
 @dataclass
-class CustomSpace:
+class CustomSpace(pymunk.Space):
     gravity: tuple[float, float] = (0, config.DEFAULT_GRAVITY)
-    iterations: int = 10
-    shapes: list[BaseShape] = field(default_factory=list)
-    space: pymunk.Space = field(init=False)
-    draw_options: pymunk.pygame_util.DrawOptions = field(init=False)
+    iterations: int = config.SPACE_ITERATIONS
+    _draw_options: pymunk.pygame_util.DrawOptions | None = field(
+        init=False, default=None
+    )
+
+    @property
+    def draw_options(self) -> pymunk.pygame_util.DrawOptions:
+        if self._draw_options is None:
+            raise RuntimeError("Screen must be linked before drawing")
+        return self._draw_options
 
     def __post_init__(self) -> None:
-        self.space = pymunk.Space()
-        self.space.gravity = self.gravity
-        self.space.iterations = self.iterations
+        super().__init__()
+        self.gravity = self.gravity
+        self.iterations = self.iterations
 
-    def add_shape(self, shape: BaseShape) -> None:
-        shape.add_to_space(self.space)
+    def add_body(self, body: BaseBody) -> None:
+        self.add(body.body, *body.shapes)
 
-    def add_shapes(self, shapes: list[BaseShape]) -> None:
-        for shape in shapes:
-            self.add_shape(shape)
+    def remove_body(self, body: BaseBody) -> None:
+        self.remove(body.body, *body.shapes)
 
-    def setup_draw_options(self, screen: pygame.Surface) -> None:
-        self.draw_options = pymunk.pygame_util.DrawOptions(screen)
-        self.draw_options.transform = pymunk.Transform.scaling(
+    def add_bodies(self, bodies: list[BaseBody]) -> None:
+        for body in bodies:
+            self.add_body(body)
+
+    def link_screen(self, screen: pygame.Surface) -> None:
+        self._draw_options = pymunk.pygame_util.DrawOptions(screen)
+        self._draw_options.transform = pymunk.Transform.scaling(
             config.RESOLUTION_SCALE_FACTOR
         )
 
-    def step(self, dt: float) -> None:
-        self.space.step(dt)
-
     def draw(self) -> None:
-        self.space.debug_draw(self.draw_options)
+        self.debug_draw(self.draw_options)
 
-    def get_collision_handler(
-        self, body_id_1: int, body_id_2: int
-    ) -> pymunk.CollisionHandler:
-        """Delegates wildcard collision handler creation to the underlying pymunk space"""
-        return self.space.add_collision_handler(body_id_1, body_id_2)
+    def get_collision_handler(self, config_data: dict) -> pymunk.CollisionHandler:
+        return self.add_collision_handler(
+            config_data["bodyId1"] + 1, config_data["bodyId2"] + 1
+        )
+
+    def check_collisions(self, circle: Circle) -> bool:
+        # Query the space using both BB and shape query for more accurate results
+        bb_collisions = self.bb_query(circle.get_bb(), circle.get_filter())
+
+        # Filter out self-collisions
+        collisions = [c for c in bb_collisions if c != circle.body]
+
+        return len(collisions) > 0

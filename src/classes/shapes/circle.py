@@ -2,22 +2,20 @@ from dataclasses import dataclass
 
 import pymunk
 
-from .base_shape import BaseShape
+from .base_shape import BaseBody
 
 RADIUS_ADJUSTMENT = 0.5
 
 
 @dataclass(kw_only=True)
-class Circle(BaseShape):
-    diameter: float
+class Circle(BaseBody):
+    radius: float
 
     def calculate_moment(self) -> float:
-        return pymunk.moment_for_circle(
-            self.mass, 0, self.diameter / 2 + RADIUS_ADJUSTMENT
-        )
+        return pymunk.moment_for_circle(self.mass, 0, self.radius + RADIUS_ADJUSTMENT)
 
     def get_shapes(self) -> list[pymunk.Shape]:
-        return [pymunk.Circle(self.body, self.diameter / 2 + RADIUS_ADJUSTMENT)]
+        return [pymunk.Circle(self.body, self.radius + RADIUS_ADJUSTMENT)]
 
     def get_bb(self) -> pymunk.BB:
         return self.shapes[0].cache_bb()

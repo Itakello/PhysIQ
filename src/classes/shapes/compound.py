@@ -3,11 +3,11 @@ from dataclasses import dataclass, field
 
 import pymunk
 
-from .base_shape import BaseShape
+from .base_shape import BaseBody
 
 
 @dataclass(kw_only=True)
-class Compound(BaseShape):
+class Compound(BaseBody):
     angle: float = 0.0
     shapes_data: list[dict]
     vertices_list: list[list[tuple[float, float]]] = field(

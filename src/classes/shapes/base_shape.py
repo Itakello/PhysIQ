@@ -11,7 +11,7 @@ logger = ItakelloLogging().get_logger(__name__)
 
 
 @dataclass
-class BaseShape(ABC):
+class BaseBody(ABC):
     idx: int
     color: Color
     position: Position
@@ -43,18 +43,9 @@ class BaseShape(ABC):
         raise NotImplementedError("Subclasses must implement get_shapes method")
 
     def _set_defaults(self) -> None:
-        # add_sensor = self.idx > 4
         for shape in self.shapes:
             shape.density = config.DEFAULT_DENSITY
             shape.friction = config.DEFAULT_FRICTION
             shape.elasticity = config.DEFAULT_RESTITUTION
             shape.color = self.color.rgba
             shape.collision_type = self.idx
-            # shape.sensor = True
-            """if add_sensor:
-                shape.collision_type = self.idx
-            else:
-                shape.collision_type = 0"""
-
-    def add_to_space(self, space: pymunk.Space) -> None:
-        space.add(self.body, *self.shapes)
