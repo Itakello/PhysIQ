@@ -25,7 +25,7 @@ class Color:
 
     _COLOR_VALUES = {
         Preset.RED: (243, 79, 70),
-        Preset.GREEN: (24, 119, 242),
+        Preset.GREEN: (107, 206, 187),
         Preset.AZURE: (27, 121, 242),
         Preset.PINK: (75, 74, 164),
         Preset.BLUE: (107, 206, 187),

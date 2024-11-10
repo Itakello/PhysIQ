@@ -17,7 +17,6 @@ logger = ItakelloLogging().get_logger(__name__)
 class SimulationManager(BaseManager):
     show_visualization: bool = True
     task: Task = field(init=False)
-    clock: pygame.time.Clock = field(default_factory=pygame.time.Clock)
     surface_manager: SurfaceManager = field(default_factory=SurfaceManager)
 
     def __post_init__(self) -> None:
@@ -50,12 +49,10 @@ class SimulationManager(BaseManager):
         )
 
     def test_goal(self) -> bool:
-        fixed_time_step = 1.0 / config.FPS
-        scaled_time_step = fixed_time_step * config.TIME_SCALE
+        fixed_dt = (1.0 / config.FPS) * config.TIME_SCALE
 
         while True:
-            dt = self.clock.tick(config.FPS) / 1000.0
-            self.task.space.elapsed_time += dt
+            self.task.space.elapsed_time += fixed_dt
 
             if self.show_visualization:
                 for event in pygame.event.get():
@@ -64,9 +61,7 @@ class SimulationManager(BaseManager):
 
                 self.surface_manager.clear_sim_surface()
 
-            # Physics simulation steps
-            for _ in range(config.SIMULATION_STEPS_PER_FRAME):
-                self.task.space.step(scaled_time_step)
+            self.task.space.step(fixed_dt)
 
             # Visualization updates
             if self.show_visualization:

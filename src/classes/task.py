@@ -15,7 +15,6 @@ logger = ItakelloLogging().get_logger(__name__)
 def begin(arbiter: pymunk.Arbiter, space: CustomSpace, data: dict) -> Literal[True]:
     shapes = tuple(sorted([arbiter.shapes[0], arbiter.shapes[1]], key=id))
     data["collisions"][shapes] = space.elapsed_time
-    logger.debug(f"Shapes {shapes} have started colliding.")
     return True
 
 
