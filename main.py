@@ -13,8 +13,8 @@ def main() -> None:
     tasks = level_manager.get_levels_first_tasks()
     for task in tasks:
         simulation_manager.load_task(task)
-        simulation_manager.find_proposal()
         simulation_manager.test_goal()
+        simulation_manager.find_proposal()
         # simulation_manager.add_solution()
         # simulation_manager.run_simulation()
 

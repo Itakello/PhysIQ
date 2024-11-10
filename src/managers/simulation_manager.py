@@ -48,8 +48,9 @@ class SimulationManager(BaseManager):
     def test_goal(self) -> bool:
         fixed_time_step = 1.0 / config.FPS
         scaled_time_step = fixed_time_step * config.TIME_SCALE
+
         while True:
-            dt = self.clock.tick(config.FPS) / 1000.0  # Convert to seconds
+            dt = self.clock.tick(config.FPS) / 1000.0
             self.elapsed_time += dt
 
             if self.show_visualization:
@@ -59,13 +60,16 @@ class SimulationManager(BaseManager):
 
                 self.surface_manager.clear_sim_surface()
 
+            # Physics simulation steps
             for _ in range(config.SIMULATION_STEPS_PER_FRAME):
                 self.task.space.step(scaled_time_step)
 
+            # Visualization updates
             if self.show_visualization:
                 self.task.space.draw()
                 self.surface_manager.scale_and_display()
 
+            # Time limit check
             if self.elapsed_time >= config.SIMULATION_EXAMPLE_DURATION:
                 return False
 

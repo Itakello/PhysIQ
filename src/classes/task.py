@@ -57,8 +57,8 @@ class Task:
             self.create_body(idx + 1, body) for idx, body in enumerate(self.bodies_data)
         ]
         self.space.add_bodies(self.bodies)
-        self.handler = self.space.add_collision_handler(*self.collision_pair_indices)
-        self._setup_collision_handler()
+        # self.handler = self.space.add_collision_handler(*self.collision_pair_indices)
+        # self._setup_collision_handler()
 
     def link_screen(self, screen: pygame.Surface) -> None:
         self.space.link_screen(screen)
