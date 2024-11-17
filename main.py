@@ -8,9 +8,9 @@ logger = ItakelloLogging(
 
 
 def main() -> None:
-    simulation_manager = SimulationManager(show_visualization=True)
+    simulation_manager = SimulationManager(show_visualization=False)
     template_manager = TemplateManager()
-    tasks = template_manager.get_levels_first_tasks(starting_level="00005")
+    tasks = template_manager.get_levels_first_tasks(starting_level="00000")
 
     for task in tasks:
         simulation_manager.load_task(task)

@@ -24,9 +24,6 @@ def pre_solve(arbiter: pymunk.Arbiter, space: CustomSpace, data: dict) -> Litera
     if start_time is not None:
         elapsed_time = space.elapsed_time - start_time
         if elapsed_time >= config.COLLISION_DURATION_THRESHOLD:
-            logger.confirmation(
-                f"Shapes {shapes} have been colliding for {elapsed_time:.2f} seconds."
-            )
             data["goal_reached"] = True
             del data["collisions"][shapes]
     return True

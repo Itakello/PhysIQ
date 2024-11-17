@@ -77,25 +77,14 @@ class SimulationManager(BaseManager):
 
     def find_proposal(self) -> None:
         attempts = 0
-        while attempts < config.MAX_ATTEMPTS:
-            radius = random.uniform(config.MIN_RADIUS, config.MAX_RADIUS)
-            # Position considers radius to keep ball within bounds
-            x = random.uniform(radius, config.SCENE_DIMENSIONS[0] - radius)
-            y = random.uniform(radius, config.SCENE_DIMENSIONS[1] - radius)
-
-            # Create ball configuration
-            ball_config = {
-                "bodyType": 1,
-                "shapeType": 1,
-                "position": [x, y],
-                "radius": radius,
-                "color": 1,
-                "mass": 1.0,
-            }
-
-            # Create the shape
-            ball = self.task.create_body(len(self.task.bodies) + 1, ball_config)
-            assert type(ball) is Circle
+        good_candidates = []
+        bad_candidates = []
+        while (
+            attempts < config.MAX_ATTEMPTS
+            or len(good_candidates) < config.NUMBER_OF_GOOD_CANDIDATES
+            or len(bad_candidates) < config.NUMBER_OF_BAD_CANDIDATES
+        ):
+            ball = self._create_random_ball()
 
             # Check for collisions with existing bodies
             if not self.task.space.check_collisions(ball):
@@ -105,14 +94,23 @@ class SimulationManager(BaseManager):
                     logger.confirmation(
                         f"Found correct proposal at attempt: {attempts}"
                     )
-                    return
+                    if len(good_candidates) < config.NUMBER_OF_GOOD_CANDIDATES:
+                        good_candidates.append(ball)
                 else:
-                    self.reset_task()
+                    if len(bad_candidates) < config.NUMBER_OF_BAD_CANDIDATES:
+                        bad_candidates.append(ball)
+                self.reset_task()
+                if (
+                    len(good_candidates) >= config.NUMBER_OF_GOOD_CANDIDATES
+                    and len(bad_candidates) >= config.NUMBER_OF_BAD_CANDIDATES
+                ):
+                    return
             attempts += 1
 
-        logger.warning(
-            "Could not find valid position for random ball after max attempts"
-        )
+        if attempts >= config.MAX_ATTEMPTS:
+            logger.warning(
+                "Could not find valid position for random ball after max attempts"
+            )
         return
 
     def reset_task(self) -> None:
@@ -124,3 +122,24 @@ class SimulationManager(BaseManager):
             self.task.space.link_screen(self.surface_manager.sim_surface)
 
         logger.debug(f"Reset task: {self.task}")
+
+    def _create_random_ball(self) -> Circle:
+        radius = random.uniform(config.MIN_RADIUS, config.MAX_RADIUS)
+        # Position considers radius to keep ball within bounds
+        x = random.uniform(radius, config.SCENE_DIMENSIONS[0] - radius)
+        y = random.uniform(radius, config.SCENE_DIMENSIONS[1] - radius)
+
+        # Create ball configuration
+        ball_config = {
+            "bodyType": 1,
+            "shapeType": 1,
+            "position": [x, y],
+            "radius": radius,
+            "color": 1,
+            "mass": 1.0,
+        }
+
+        # Create the shape
+        ball = self.task.create_body(len(self.task.bodies) + 1, ball_config)
+        assert type(ball) is Circle
+        return ball
