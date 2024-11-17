@@ -8,7 +8,7 @@ from .base_manager import BaseManager
 
 
 @dataclass
-class LevelManager(BaseManager):
+class TemplateManager(BaseManager):
     levels: dict[str, Level] = field(default_factory=dict)
     current_level: Level | None = None
 
