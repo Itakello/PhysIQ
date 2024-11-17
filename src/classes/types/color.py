@@ -19,8 +19,8 @@ class Color:
         AZURE = auto()
         PINK = auto()
         BLUE = auto()
-        GREY = auto()
         BLACK = auto()
+        GREY = auto()
         # Add more predefined colors as needed
 
     _COLOR_VALUES = {

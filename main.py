@@ -15,6 +15,7 @@ def main() -> None:
     for task in tasks:
         simulation_manager.load_task(task)
         simulation_manager.find_proposal()
+        # simulation_manager.test_goal()
 
 
 if __name__ == "__main__":
