@@ -4,8 +4,8 @@ from pathlib import Path
 
 def create_folders(base_path: Path) -> None:
     """Create 1_ball and 2_ball folders."""
-    (base_path / "1_ball").mkdir(exist_ok=True)
-    (base_path / "2_ball").mkdir(exist_ok=True)
+    (base_path / "categories" / "1_ball").mkdir(exist_ok=True)
+    (base_path / "categories" / "2_ball").mkdir(exist_ok=True)
 
 
 def get_json_files(data_path: Path) -> list[Path]:

@@ -72,10 +72,10 @@ class SimulationManager(BaseManager):
                 return True
 
             # Time limit check
-            if self.task.space.elapsed_time >= config.SIMULATION_EXAMPLE_DURATION:
+            if self.task.space.elapsed_time >= config.SIMULATION_DURATION_THRESHOLD:
                 return False
 
-    def find_proposal(self) -> None:
+    def find_proposals(self) -> None:
         attempts = 0
         good_candidates = []
         bad_candidates = []
@@ -107,6 +107,7 @@ class SimulationManager(BaseManager):
                     len(good_candidates) >= config.NUMBER_OF_GOOD_CANDIDATES
                     and len(bad_candidates) >= config.NUMBER_OF_BAD_CANDIDATES
                 ):
+                    self._save_proposals(good_candidates, bad_candidates)
                     return
             attempts += 1
 
@@ -146,3 +147,10 @@ class SimulationManager(BaseManager):
         ball = self.task.create_body(len(self.task.bodies) + 1, ball_config)
         assert type(ball) is Circle
         return ball
+
+    def _save_proposals(
+        self, good_candidates: list[Circle], bad_candidates: list[Circle]
+    ) -> None:
+        self.task.save_proposals(good_candidates, bad_candidates)
+        logger.confirmation("Proposals saved")
+        return

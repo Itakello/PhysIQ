@@ -10,13 +10,14 @@ shapeType:
 1 - Circle
 2 - Polygon
 3 - Compound Shape
+4 - ?
 
 color:
 0 - Red
 1 - Green
-2 - Blue
-3 - Yellow
-4 - Purple
+2 - Azure
+3 - Pink
+4 - Blue
 5 - Grey
 6 - Black
 
@@ -28,5 +29,3 @@ relationships:
 tier:
 0 - BALL
 1 - TWO_BALLS
-2 - RAMP
-3 - VIRTUAL_TOOLS
