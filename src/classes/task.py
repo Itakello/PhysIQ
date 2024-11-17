@@ -125,7 +125,7 @@ class Task:
         self.space.add_bodies(self.bodies)
         self.handler = self.space.add_collision_handler(*self.collision_pair_indices)
         self._setup_collision_handler()
-        logger.warning("Shapes reset")
+        logger.debug("RESETTING SHAPES")
 
     def __str__(self) -> str:
         return f"{self.id} - {self.idx}"

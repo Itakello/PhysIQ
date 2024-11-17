@@ -3,7 +3,7 @@ from itakello_logging import ItakelloLogging
 from src.managers import SimulationManager, TemplateManager
 
 logger = ItakelloLogging(
-    debug=True, excluded_modules=["pymunk.space", "pymunk.shapes", "pymunk.body"]
+    debug=False, excluded_modules=["pymunk.space", "pymunk.shapes", "pymunk.body"]
 ).get_logger(__name__)
 
 

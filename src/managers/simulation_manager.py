@@ -91,13 +91,16 @@ class SimulationManager(BaseManager):
                 self.task.space.add_body(ball)
                 logger.debug(f"Found valid position for ball at attempt: {attempts}")
                 if self.test_goal():
-                    logger.confirmation(
-                        f"Found correct proposal at attempt: {attempts}"
-                    )
                     if len(good_candidates) < config.NUMBER_OF_GOOD_CANDIDATES:
+                        logger.confirmation(
+                            f"Found GOOD proposal at attempt: {attempts}"
+                        )
                         good_candidates.append(ball)
                 else:
                     if len(bad_candidates) < config.NUMBER_OF_BAD_CANDIDATES:
+                        logger.confirmation(
+                            f"Found BAD proposal at attempt: {attempts}"
+                        )
                         bad_candidates.append(ball)
                 self.reset_task()
                 if (
