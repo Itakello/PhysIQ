@@ -36,24 +36,26 @@ class SimulationManager(BaseManager):
 
         return True
 
-    def test_goal(self) -> tuple[bool, pygame.Surface | None, pygame.Surface | None]:
+    def test_goal(
+        self, require_end_screen: bool = True
+    ) -> tuple[bool, pygame.Surface | None, pygame.Surface | None]:
         fixed_dt = (1.0 / config.FPS) * config.TIME_SCALE
-        starting_screen = None
-        ending_screen = None
+        start_screen = None
+        end_screen = None
 
         while True:
             self.task.space.elapsed_time += fixed_dt
 
-            if self.show_visualization or starting_screen is None:
+            if self.show_visualization or start_screen is None:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        return (False, starting_screen, ending_screen)
+                        return (False, start_screen, end_screen)
 
                 self.surface_manager.clear_sim_surface()
 
-            if starting_screen is None:
+            if start_screen is None:
                 self._display_surface()
-                starting_screen = self.surface_manager.get_snapshot()
+                start_screen = self.surface_manager.get_snapshot()
             elif self.show_visualization:
                 self._display_surface()
 
@@ -61,14 +63,17 @@ class SimulationManager(BaseManager):
                 if not self.show_visualization:
                     self.surface_manager.clear_sim_surface()
                 self._display_surface()
-                return (True, starting_screen, self.surface_manager.get_snapshot())
+                end_screen = self.surface_manager.get_snapshot()
+                return (True, start_screen, end_screen)
 
             # Time limit check
             if self.task.space.elapsed_time >= config.SIMULATION_DURATION_THRESHOLD:
-                if not self.show_visualization:
-                    self.surface_manager.clear_sim_surface()
-                self._display_surface()
-                return (False, starting_screen, self.surface_manager.get_snapshot())
+                if require_end_screen:
+                    if not self.show_visualization:
+                        self.surface_manager.clear_sim_surface()
+                    self._display_surface()
+                    end_screen = self.surface_manager.get_snapshot()
+                return (False, start_screen, end_screen)
 
             self.task.space.step(fixed_dt)
 
@@ -88,14 +93,17 @@ class SimulationManager(BaseManager):
             if not self.task.space.check_collisions(ball):
                 self.task.space.add_body(ball)
                 logger.debug(f"Found valid position for ball at attempt: {attempts}")
-                accomplished, start_screen, end_screen = self.test_goal()
-                assert start_screen
-                assert end_screen
+                accomplished, start_screen, end_screen = self.test_goal(
+                    require_end_screen=counter_bad_candidates
+                    < config.NUMBER_OF_BAD_CANDIDATES
+                )
                 if accomplished:
                     if counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES:
                         logger.confirmation(
                             f"Found GOOD proposal at attempt: {attempts}"
                         )
+                        assert start_screen
+                        assert end_screen
                         proposals.append(
                             Proposal(
                                 idx=counter_good_candidates,
@@ -111,6 +119,8 @@ class SimulationManager(BaseManager):
                         logger.confirmation(
                             f"Found BAD proposal at attempt: {attempts}"
                         )
+                        assert start_screen
+                        assert end_screen
                         proposals.append(
                             Proposal(
                                 idx=counter_bad_candidates,
@@ -124,7 +134,7 @@ class SimulationManager(BaseManager):
                 self.reset_task()
                 if (
                     counter_good_candidates >= config.NUMBER_OF_GOOD_CANDIDATES
-                    and counter_good_candidates >= config.NUMBER_OF_BAD_CANDIDATES
+                    and counter_bad_candidates >= config.NUMBER_OF_BAD_CANDIDATES
                 ):
                     break
             attempts += 1

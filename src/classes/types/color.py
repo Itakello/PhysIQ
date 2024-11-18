@@ -17,20 +17,18 @@ class Color:
         RED = auto()
         GREEN = auto()
         AZURE = auto()
-        PINK = auto()
         BLUE = auto()
-        BLACK = auto()
         GREY = auto()
+        BLACK = auto()
         # Add more predefined colors as needed
 
     _COLOR_VALUES = {
         Preset.RED: (243, 79, 70),
         Preset.GREEN: (107, 206, 187),
         Preset.AZURE: (27, 121, 242),
-        Preset.PINK: (75, 74, 164),
-        Preset.BLUE: (107, 206, 187),
-        Preset.GREY: (185, 202, 210),
+        Preset.BLUE: (75, 74, 164),
         Preset.BLACK: (0, 0, 0),
+        Preset.GREY: (185, 202, 210),
     }
 
     def get_preset(self) -> Preset | None:
