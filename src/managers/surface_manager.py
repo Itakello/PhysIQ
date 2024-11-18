@@ -39,3 +39,6 @@ class SurfaceManager(BaseManager):
             self.sim_surface, self.screen.get_size(), self.screen
         )
         pygame.display.flip()
+
+    def get_snapshot(self) -> pygame.Surface:
+        return self.sim_surface.copy()

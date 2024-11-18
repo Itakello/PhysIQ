@@ -144,14 +144,10 @@ class Task:
     def save_proposals(
         self,
         config_name: str,
-        good_proposals: list[Proposal],
-        bad_proposals: list[Proposal],
+        proposals: list[Proposal],
     ) -> None:
         config_path = self.path / config_name
         config_path.mkdir(parents=True, exist_ok=True)
 
-        for proposal in good_proposals:
-            proposal.save(config_path)
-
-        for proposal in bad_proposals:
+        for proposal in proposals:
             proposal.save(config_path)

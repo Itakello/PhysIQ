@@ -56,6 +56,7 @@ class CustomSpace(pymunk.Space):
         self._draw_options.transform = pymunk.Transform.scaling(
             config.RESOLUTION_SCALE_FACTOR
         )
+        self._draw_options.flags = pymunk.pygame_util.DrawOptions.DRAW_SHAPES
 
     def draw(self) -> None:
         self.debug_draw(self.draw_options)

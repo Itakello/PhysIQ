@@ -36,9 +36,10 @@ class SimulationManager(BaseManager):
 
         return True
 
-    def test_goal(self) -> tuple[bool, pygame.Surface | None]:
+    def test_goal(self) -> tuple[bool, pygame.Surface | None, pygame.Surface | None]:
         fixed_dt = (1.0 / config.FPS) * config.TIME_SCALE
         starting_screen = None
+        ending_screen = None
 
         while True:
             self.task.space.elapsed_time += fixed_dt
@@ -46,35 +47,40 @@ class SimulationManager(BaseManager):
             if self.show_visualization or starting_screen is None:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        return (False, starting_screen)
+                        return (False, starting_screen, ending_screen)
 
                 self.surface_manager.clear_sim_surface()
 
-            # Visualization updates
-            if self.show_visualization or starting_screen is None:
-                self.task.space.draw()
-                self.surface_manager.scale_and_display()
-
             if starting_screen is None:
-                starting_screen = self.surface_manager.sim_surface.copy()
-
-            self.task.space.step(fixed_dt)
+                self._display_surface()
+                starting_screen = self.surface_manager.get_snapshot()
+            elif self.show_visualization:
+                self._display_surface()
 
             if self.task.handler.data["goal_reached"]:
-                return (True, starting_screen)
+                if not self.show_visualization:
+                    self.surface_manager.clear_sim_surface()
+                self._display_surface()
+                return (True, starting_screen, self.surface_manager.get_snapshot())
 
             # Time limit check
             if self.task.space.elapsed_time >= config.SIMULATION_DURATION_THRESHOLD:
-                return (False, starting_screen)
+                if not self.show_visualization:
+                    self.surface_manager.clear_sim_surface()
+                self._display_surface()
+                return (False, starting_screen, self.surface_manager.get_snapshot())
+
+            self.task.space.step(fixed_dt)
 
     def find_proposals(self, config_name: str) -> None:
         attempts = 0
-        good_candidates = []
-        bad_candidates = []
+        counter_good_candidates = 0
+        counter_bad_candidates = 0
+        proposals = []
         while (
             attempts < config.MAX_ATTEMPTS
-            or len(good_candidates) < config.NUMBER_OF_GOOD_CANDIDATES
-            or len(bad_candidates) < config.NUMBER_OF_BAD_CANDIDATES
+            or counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES
+            or counter_bad_candidates < config.NUMBER_OF_BAD_CANDIDATES
         ):
             ball = self._create_random_ball()
 
@@ -82,44 +88,48 @@ class SimulationManager(BaseManager):
             if not self.task.space.check_collisions(ball):
                 self.task.space.add_body(ball)
                 logger.debug(f"Found valid position for ball at attempt: {attempts}")
-                accomplished, starting_screen = self.test_goal()
-                assert starting_screen
+                accomplished, start_screen, end_screen = self.test_goal()
+                assert start_screen
+                assert end_screen
                 if accomplished:
-                    if len(good_candidates) < config.NUMBER_OF_GOOD_CANDIDATES:
+                    if counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES:
                         logger.confirmation(
                             f"Found GOOD proposal at attempt: {attempts}"
                         )
-                        good_candidates.append(
+                        proposals.append(
                             Proposal(
-                                idx=len(good_candidates),
+                                idx=counter_good_candidates,
                                 bodies=[ball],
-                                screen=starting_screen,
+                                start_screen=start_screen,
+                                end_screen=end_screen,
                                 good=True,
                             )
                         )
+                        counter_good_candidates += 1
                 else:
-                    if len(bad_candidates) < config.NUMBER_OF_BAD_CANDIDATES:
+                    if counter_bad_candidates < config.NUMBER_OF_BAD_CANDIDATES:
                         logger.confirmation(
                             f"Found BAD proposal at attempt: {attempts}"
                         )
-                        bad_candidates.append(
+                        proposals.append(
                             Proposal(
-                                idx=len(bad_candidates),
+                                idx=counter_bad_candidates,
                                 bodies=[ball],
-                                screen=starting_screen,
+                                start_screen=start_screen,
+                                end_screen=end_screen,
                                 good=False,
                             )
                         )
+                        counter_bad_candidates += 1
                 self.reset_task()
                 if (
-                    len(good_candidates) >= config.NUMBER_OF_GOOD_CANDIDATES
-                    and len(bad_candidates) >= config.NUMBER_OF_BAD_CANDIDATES
+                    counter_good_candidates >= config.NUMBER_OF_GOOD_CANDIDATES
+                    and counter_good_candidates >= config.NUMBER_OF_BAD_CANDIDATES
                 ):
-                    self.task.save_proposals(
-                        config_name, good_candidates, bad_candidates
-                    )
-                    return
+                    break
             attempts += 1
+
+        self.task.save_proposals(config_name, proposals)
 
         if attempts >= config.MAX_ATTEMPTS:
             logger.warning(
@@ -136,6 +146,10 @@ class SimulationManager(BaseManager):
             self.task.space.link_screen(self.surface_manager.sim_surface)
 
         logger.debug(f"Reset task: {self.task}")
+
+    def _display_surface(self) -> None:
+        self.task.space.draw()
+        self.surface_manager.scale_and_display()
 
     def _create_random_ball(self) -> Circle:
         radius = random.uniform(config.MIN_RADIUS, config.MAX_RADIUS)
