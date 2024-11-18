@@ -1,10 +1,13 @@
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
 
 import pymunk
 from itakello_logging import ItakelloLogging
 
 from ..config import config
+from .proposal import Proposal
 from .shapes import BaseBody, Circle, Compound, Polygon
 from .space import CustomSpace
 from .types import Color, Position
@@ -43,6 +46,7 @@ class Task:
     idx: str
     bodies_data: dict
     collision_pair_indices: tuple[int, int]
+    path: Path
     space: CustomSpace = field(init=False, default_factory=CustomSpace)
     bodies: list[BaseBody] = field(init=False, default_factory=list)
     handler: pymunk.CollisionHandler = field(init=False)
@@ -136,3 +140,18 @@ class Task:
         self.handler.begin = begin
         self.handler.pre_solve = pre_solve
         self.handler.separate = separate
+
+    def save_proposals(
+        self,
+        config_name: str,
+        good_proposals: list[Proposal],
+        bad_proposals: list[Proposal],
+    ) -> None:
+        config_path = self.path / config_name
+        config_path.mkdir(parents=True, exist_ok=True)
+
+        for proposal in good_proposals:
+            proposal.save(config_path)
+
+        for proposal in bad_proposals:
+            proposal.save(config_path)

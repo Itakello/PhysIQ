@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 import pygame
 import pymunk
 import pymunk.pygame_util
+from pymunk.space_debug_draw_options import SpaceDebugColor
+from pymunk.vec2d import Vec2d
 
 from src.classes.shapes import BaseBody
 from src.config import config
@@ -10,15 +12,26 @@ from src.config import config
 from .shapes.circle import Circle
 
 
+class CustomDrawOptions(pymunk.pygame_util.DrawOptions):
+
+    def draw_circle(
+        self,
+        pos: Vec2d,
+        angle: float,
+        radius: float,
+        outline_color: SpaceDebugColor,
+        fill_color: SpaceDebugColor,
+    ) -> None:
+        pygame.draw.circle(self.surface, fill_color, pos, int(radius))  # type: ignore
+
+
 @dataclass
 class CustomSpace(pymunk.Space):
     elapsed_time: float = field(init=False, default=0.0)
-    _draw_options: pymunk.pygame_util.DrawOptions | None = field(
-        init=False, default=None
-    )
+    _draw_options: CustomDrawOptions | None = field(init=False, default=None)
 
     @property
-    def draw_options(self) -> pymunk.pygame_util.DrawOptions:
+    def draw_options(self) -> CustomDrawOptions:
         if self._draw_options is None:
             raise RuntimeError("Screen must be linked before drawing")
         return self._draw_options
@@ -39,7 +52,7 @@ class CustomSpace(pymunk.Space):
             self.add_body(body)
 
     def link_screen(self, screen: pygame.Surface) -> None:
-        self._draw_options = pymunk.pygame_util.DrawOptions(screen)
+        self._draw_options = CustomDrawOptions(screen)
         self._draw_options.transform = pymunk.Transform.scaling(
             config.RESOLUTION_SCALE_FACTOR
         )

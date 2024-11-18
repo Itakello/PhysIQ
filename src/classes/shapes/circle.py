@@ -22,3 +22,15 @@ class Circle(BaseBody):
 
     def get_filter(self) -> pymunk.ShapeFilter:
         return self.shapes[0].filter
+
+    def to_dict(self) -> dict:
+        preset = self.color.get_preset()
+        assert preset
+        return {
+            "position": self.position.x_y,
+            "body_type": self.body_type,
+            "angle": 0.0,
+            "color": preset.value,
+            "shapeType": 1,
+            "radius": self.radius,
+        }

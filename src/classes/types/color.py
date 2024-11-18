@@ -33,6 +33,14 @@ class Color:
         Preset.BLACK: (0, 0, 0),
     }
 
+    def get_preset(self) -> Preset | None:
+        """Get the preset enum value if this color matches a preset."""
+        current_color = (self.r, self.g, self.b)
+        for preset, values in self._COLOR_VALUES.items():
+            if values == current_color:
+                return preset
+        return None
+
     @classmethod
     def from_preset(cls, preset: Preset) -> "Color":
         return cls(*cls._COLOR_VALUES[preset])

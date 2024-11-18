@@ -32,12 +32,10 @@ class SurfaceManager(BaseManager):
         )
 
     def clear_sim_surface(self) -> None:
-        if self._sim_surface:
-            self._sim_surface.fill((255, 255, 255))
+        self.sim_surface.fill((255, 255, 255))
 
     def scale_and_display(self) -> None:
-        if self._sim_surface and self.screen:
-            pygame.transform.smoothscale(
-                self._sim_surface, self.screen.get_size(), self.screen
-            )
-            pygame.display.flip()
+        pygame.transform.smoothscale(
+            self.sim_surface, self.screen.get_size(), self.screen
+        )
+        pygame.display.flip()

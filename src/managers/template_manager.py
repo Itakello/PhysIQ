@@ -44,12 +44,12 @@ class TemplateManager(BaseManager):
             "restitution": config.DEFAULT_RESTITUTION,
         }
         new_group_name = "config_001"
+        physical_constants = {"configurations": {}}
 
         if physical_configurations_file.exists():
             physical_constants = json.loads(physical_configurations_file.read_text())
             new_group_name = f"config_{(int(max(physical_constants['configurations'].keys())[-3:]) + 1):03d}"
-        else:
-            physical_constants = {"configurations": {}}
+
         physical_constants["configurations"][new_group_name] = metadata
 
         with physical_configurations_file.open("w") as f:

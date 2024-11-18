@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import pygame
 from itakello_logging import ItakelloLogging
 
+from ..classes.proposal import Proposal
 from ..classes.shapes.circle import Circle
 from ..classes.task import Task
 from ..config import config
@@ -20,62 +21,53 @@ class SimulationManager(BaseManager):
     surface_manager: SurfaceManager = field(default_factory=SurfaceManager)
 
     def __post_init__(self) -> None:
-        if self.show_visualization:
-            pygame.init()
-            self.surface_manager.create_surfaces()
+        pygame.init()
+        self.surface_manager.create_surfaces()
 
     def load_task(self, task: Task) -> bool:
         pygame.display.set_caption(
             f"Pymunk Simulation - {task.category}:{task.id}:{task.idx}"
         )
-        if self.show_visualization:
-            task.space.link_screen(self.surface_manager.sim_surface)
+        # if self.show_visualization:
+        task.space.link_screen(self.surface_manager.sim_surface)
         self.task = task
         self.task.space.elapsed_time = 0.0
         logger.confirmation(f"Loaded task: {task}")
 
         return True
 
-    def toggle_visualization(self) -> None:
-        """Toggle the visualization state."""
-        if self.show_visualization:
-            pygame.quit()
-        else:
-            pygame.init()
-            self.surface_manager.create_surfaces()
-        self.show_visualization = not self.show_visualization
-        logger.confirmation(
-            f"Visualization {'enabled' if self.show_visualization else 'disabled'}"
-        )
-
-    def test_goal(self) -> bool:
+    def test_goal(self) -> tuple[bool, pygame.Surface | None]:
         fixed_dt = (1.0 / config.FPS) * config.TIME_SCALE
+        starting_screen = None
 
         while True:
             self.task.space.elapsed_time += fixed_dt
 
-            if self.show_visualization:
+            if self.show_visualization or starting_screen is None:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        return False
+                        return (False, starting_screen)
 
                 self.surface_manager.clear_sim_surface()
 
-            self.task.space.step(fixed_dt)
-
             # Visualization updates
-            if self.show_visualization:
+            if self.show_visualization or starting_screen is None:
                 self.task.space.draw()
                 self.surface_manager.scale_and_display()
 
+            if starting_screen is None:
+                starting_screen = self.surface_manager.sim_surface.copy()
+
+            self.task.space.step(fixed_dt)
+
             if self.task.handler.data["goal_reached"]:
-                return True
+                return (True, starting_screen)
 
             # Time limit check
             if self.task.space.elapsed_time >= config.SIMULATION_DURATION_THRESHOLD:
-                return False
+                return (False, starting_screen)
 
-    def find_proposals(self) -> None:
+    def find_proposals(self, config_name: str) -> None:
         attempts = 0
         good_candidates = []
         bad_candidates = []
@@ -90,24 +82,42 @@ class SimulationManager(BaseManager):
             if not self.task.space.check_collisions(ball):
                 self.task.space.add_body(ball)
                 logger.debug(f"Found valid position for ball at attempt: {attempts}")
-                if self.test_goal():
+                accomplished, starting_screen = self.test_goal()
+                assert starting_screen
+                if accomplished:
                     if len(good_candidates) < config.NUMBER_OF_GOOD_CANDIDATES:
                         logger.confirmation(
                             f"Found GOOD proposal at attempt: {attempts}"
                         )
-                        good_candidates.append(ball)
+                        good_candidates.append(
+                            Proposal(
+                                idx=len(good_candidates),
+                                bodies=[ball],
+                                screen=starting_screen,
+                                good=True,
+                            )
+                        )
                 else:
                     if len(bad_candidates) < config.NUMBER_OF_BAD_CANDIDATES:
                         logger.confirmation(
                             f"Found BAD proposal at attempt: {attempts}"
                         )
-                        bad_candidates.append(ball)
+                        bad_candidates.append(
+                            Proposal(
+                                idx=len(bad_candidates),
+                                bodies=[ball],
+                                screen=starting_screen,
+                                good=False,
+                            )
+                        )
                 self.reset_task()
                 if (
                     len(good_candidates) >= config.NUMBER_OF_GOOD_CANDIDATES
                     and len(bad_candidates) >= config.NUMBER_OF_BAD_CANDIDATES
                 ):
-                    self._save_proposals(good_candidates, bad_candidates)
+                    self.task.save_proposals(
+                        config_name, good_candidates, bad_candidates
+                    )
                     return
             attempts += 1
 
@@ -147,10 +157,3 @@ class SimulationManager(BaseManager):
         ball = self.task.create_body(len(self.task.bodies) + 1, ball_config)
         assert type(ball) is Circle
         return ball
-
-    def _save_proposals(
-        self, good_candidates: list[Circle], bad_candidates: list[Circle]
-    ) -> None:
-        self.task.save_proposals(good_candidates, bad_candidates)
-        logger.confirmation("Proposals saved")
-        return

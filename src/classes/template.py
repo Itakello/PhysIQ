@@ -2,8 +2,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..config import config
-from .shapes.base_shape import BaseBody
 from .task import Task
 
 
@@ -17,7 +15,8 @@ class Template:
         self.tasks = [d.name for d in self.path.iterdir() if d.is_dir()]
 
     def get_first_iteration(self) -> Task:
-        data = json.loads((self.path / self.tasks[0] / "data.json").read_text())
+        task_path = self.path / self.tasks[0]
+        data = json.loads((task_path / "data.json").read_text())
         return Task(
             id=self.id,
             category=self.category,
@@ -27,12 +26,14 @@ class Template:
                 data["relationship"]["bodyId1"] + 1,
                 data["relationship"]["bodyId2"] + 1,
             ),
+            path=task_path,
         )
 
     def get_all_iterations(self) -> list[Task]:
         tasks = []
         for task in self.tasks:
-            data = json.loads((self.path / task / "data.json").read_text())
+            task_path = self.path / task
+            data = json.loads((task_path / "data.json").read_text())
             tasks.append(
                 Task(
                     id=self.id,
@@ -43,6 +44,7 @@ class Template:
                         data["relationship"]["bodyId1"] + 1,
                         data["relationship"]["bodyId2"] + 1,
                     ),
+                    path=task_path,
                 )
             )
         return tasks
