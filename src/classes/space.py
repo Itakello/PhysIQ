@@ -27,19 +27,23 @@ class CustomDrawOptions(pymunk.pygame_util.DrawOptions):
 
 @dataclass
 class CustomSpace(pymunk.Space):
-    elapsed_time: float = field(init=False, default=0.0)
+    iterations: float = 10
+    gravity: tuple[float, float] = (0, 981)
     _draw_options: CustomDrawOptions | None = field(init=False, default=None)
+    elapsed_time: float = field(init=False, default=0.0)
+
+    def __post_init__(self) -> None:
+        # Initialize the parent pymunk.Space
+        super().__init__()
+        # Set the properties after parent initialization
+        self.iterations = self.iterations
+        self.gravity = self.gravity
 
     @property
     def draw_options(self) -> CustomDrawOptions:
         if self._draw_options is None:
             raise RuntimeError("Screen must be linked before drawing")
         return self._draw_options
-
-    def __post_init__(self) -> None:
-        super().__init__()
-        self.gravity = (0, config.DEFAULT_GRAVITY)
-        self.iterations = config.SPACE_ITERATIONS
 
     def add_body(self, body: BaseBody) -> None:
         self.add(body.body, *body.shapes)

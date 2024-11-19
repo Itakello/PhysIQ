@@ -47,12 +47,17 @@ class Task:
     bodies_data: dict
     collision_pair_indices: tuple[int, int]
     path: Path
-    space: CustomSpace = field(init=False, default_factory=CustomSpace)
+    run_config: dict
+    space: CustomSpace = field(init=False)
     bodies: list[BaseBody] = field(init=False, default_factory=list)
     handler: pymunk.CollisionHandler = field(init=False)
     initial_bodies_config: list[dict] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        self.space = CustomSpace(
+            iterations=self.run_config["space_iterations"],
+            gravity=(0, self.run_config["y_gravity"]),
+        )
         self.bodies = [
             self.create_body(idx + 1, body) for idx, body in enumerate(self.bodies_data)
         ]
@@ -93,6 +98,9 @@ class Task:
             position=position,
             body_type=shape_data["bodyType"],
             radius=shape_data["radius"],
+            density=self.run_config["density"],
+            friction=self.run_config["friction"],
+            elasticity=self.run_config["elasticity"],
         )
 
     def _create_polygon(
@@ -105,6 +113,9 @@ class Task:
             body_type=shape_data["bodyType"],
             vertices=shape_data["vertices"],
             angle=shape_data["angle"],
+            density=self.run_config["density"],
+            friction=self.run_config["friction"],
+            elasticity=self.run_config["elasticity"],
         )
 
     def _create_compound(
@@ -117,6 +128,9 @@ class Task:
             body_type=shape_data["bodyType"],
             shapes_data=shape_data["shapes"],
             angle=shape_data["angle"],
+            density=self.run_config["density"],
+            friction=self.run_config["friction"],
+            elasticity=self.run_config["elasticity"],
         )
 
     def reset(self) -> None:

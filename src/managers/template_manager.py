@@ -1,7 +1,9 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
+from ..classes.custom_dict import CustomDict
 from ..classes.task import Task
 from ..classes.template import Template
 from ..config import config
@@ -11,14 +13,26 @@ from .base_manager import BaseManager
 @dataclass
 class TemplateManager(BaseManager):
     templates: dict[str, Template] = field(default_factory=dict)
+    runs_configurations: CustomDict = field(init=False)
 
     def __post_init__(self) -> None:
-        data_path = Path("data/templates")
-        categories = [d.name for d in data_path.iterdir() if d.is_dir()]
+        self.runs_configurations = CustomDict(
+            file_name="runs_configuration.json", position=Path("data")
+        )
+
+    def load_templates(self, run_configuration_name: str) -> None:
+        template_path = Path("data") / "templates"
+        categories = [d.name for d in template_path.iterdir() if d.is_dir()]
         for category in categories:
-            levels = [d.name for d in (data_path / category).iterdir() if d.is_dir()]
+            levels = [
+                d.name for d in (template_path / category).iterdir() if d.is_dir()
+            ]
             for level in levels:
-                self.templates[level] = Template(id=level, category=category)
+                self.templates[level] = Template(
+                    id=level,
+                    category=category,
+                    run_config=self.runs_configurations["runs"][run_configuration_name],
+                )
 
     def get_templates_first_tasks(self, starting_level: str = "00000") -> list[Task]:
         return [
@@ -33,26 +47,25 @@ class TemplateManager(BaseManager):
             tasks.extend(level.get_all_iterations())
         return tasks
 
-    def add_configuration(self) -> str:
-        data_path = Path("data")
-
-        physical_configurations_file = data_path / "physical_configurations.json"
+    def add_run_configuration(self) -> str:
         metadata = {
-            "gravity": config.DEFAULT_GRAVITY,
             "density": config.DEFAULT_DENSITY,
             "friction": config.DEFAULT_FRICTION,
-            "restitution": config.DEFAULT_RESTITUTION,
+            "elasticity": config.DEFAULT_ELASTICITY,
+            "y_gravity": config.DEFAULT_Y_GRAVITY,
+            "time_scale": config.TIME_SCALE,
+            "space_iterations": config.SPACE_ITERATIONS,
         }
-        new_group_name = "config_001"
-        physical_constants = {"configurations": {}}
 
-        if physical_configurations_file.exists():
-            physical_constants = json.loads(physical_configurations_file.read_text())
-            new_group_name = f"config_{(int(max(physical_constants['configurations'].keys())[-3:]) + 1):03d}"
+        if self.runs_configurations:
+            next_idx = int(max(self.runs_configurations["runs"].keys())[-3:]) + 1
+            new_group_name = f"run_{next_idx:03d}"
+        else:
+            self.runs_configurations["runs"] = {}
+            new_group_name = "run_001"
 
-        physical_constants["configurations"][new_group_name] = metadata
+        self.runs_configurations["runs"][new_group_name] = metadata
 
-        with physical_configurations_file.open("w") as f:
-            json.dump(physical_constants, f, indent=4)
+        self.runs_configurations.save()
 
         return new_group_name

@@ -1,12 +1,15 @@
 import random
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pygame
 from itakello_logging import ItakelloLogging
 
+from ..classes.custom_dict import CustomDict
 from ..classes.proposal import Proposal
 from ..classes.shapes.circle import Circle
 from ..classes.task import Task
+from ..classes.types.color import Color
 from ..config import config
 from .base_manager import BaseManager
 from .surface_manager import SurfaceManager
@@ -19,17 +22,23 @@ class SimulationManager(BaseManager):
     show_visualization: bool = True
     task: Task = field(init=False)
     surface_manager: SurfaceManager = field(default_factory=SurfaceManager)
+    runs_configurations: CustomDict = field(init=False)
 
     def __post_init__(self) -> None:
-        pygame.init()
-        self.surface_manager.create_surfaces()
+        if self.show_visualization:
+            pygame.init()
+            self.surface_manager.create_surfaces()
+        self.runs_configurations = CustomDict(
+            file_name="runs_configuration.json",
+            position=Path("data"),
+        )
 
     def load_task(self, task: Task) -> bool:
         pygame.display.set_caption(
             f"Pymunk Simulation - {task.category}:{task.id}:{task.idx}"
         )
-        # if self.show_visualization:
-        task.space.link_screen(self.surface_manager.sim_surface)
+        if self.show_visualization:
+            task.space.link_screen(self.surface_manager.sim_surface)
         self.task = task
         self.task.space.elapsed_time = 0.0
         logger.confirmation(f"Loaded task: {task}")
@@ -37,15 +46,17 @@ class SimulationManager(BaseManager):
         return True
 
     def test_goal(
-        self, require_end_screen: bool = True
+        self,
+        run_config_name: str,
+        require_end_screen: bool = True,
+        save_screenshots: bool = False,
     ) -> tuple[bool, pygame.Surface | None, pygame.Surface | None]:
-        fixed_dt = (1.0 / config.FPS) * config.TIME_SCALE
+        current_run_config = self.runs_configurations["runs"][run_config_name]
+        fixed_dt = (1.0 / config.FPS) * current_run_config["time_scale"]
         start_screen = None
         end_screen = None
 
         while True:
-            self.task.space.elapsed_time += fixed_dt
-
             if self.show_visualization or start_screen is None:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -53,31 +64,36 @@ class SimulationManager(BaseManager):
 
                 self.surface_manager.clear_sim_surface()
 
-            if start_screen is None:
-                self._display_surface()
+            if start_screen is None and save_screenshots:
+                self._display_frame()
                 start_screen = self.surface_manager.get_snapshot()
             elif self.show_visualization:
-                self._display_surface()
+                self._display_frame()
 
             if self.task.handler.data["goal_reached"]:
-                if not self.show_visualization:
+                if self.show_visualization or save_screenshots:
                     self.surface_manager.clear_sim_surface()
-                self._display_surface()
-                end_screen = self.surface_manager.get_snapshot()
+                if save_screenshots:
+                    self._display_frame()
+                    end_screen = self.surface_manager.get_snapshot()
                 return (True, start_screen, end_screen)
 
             # Time limit check
             if self.task.space.elapsed_time >= config.SIMULATION_DURATION_THRESHOLD:
                 if require_end_screen:
-                    if not self.show_visualization:
+                    if self.show_visualization:
                         self.surface_manager.clear_sim_surface()
-                    self._display_surface()
-                    end_screen = self.surface_manager.get_snapshot()
+                    if save_screenshots:
+                        self._display_frame()
+                        end_screen = self.surface_manager.get_snapshot()
                 return (False, start_screen, end_screen)
 
+            self.task.space.elapsed_time += fixed_dt
             self.task.space.step(fixed_dt)
 
-    def find_proposals(self, config_name: str) -> None:
+    def find_proposals(
+        self, run_config_name: str, save_screenshots: bool = False
+    ) -> None:
         attempts = 0
         counter_good_candidates = 0
         counter_bad_candidates = 0
@@ -94,16 +110,16 @@ class SimulationManager(BaseManager):
                 self.task.space.add_body(ball)
                 logger.debug(f"Found valid position for ball at attempt: {attempts}")
                 accomplished, start_screen, end_screen = self.test_goal(
+                    run_config_name=run_config_name,
                     require_end_screen=counter_bad_candidates
-                    < config.NUMBER_OF_BAD_CANDIDATES
+                    < config.NUMBER_OF_BAD_CANDIDATES,
+                    save_screenshots=save_screenshots,
                 )
                 if accomplished:
                     if counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES:
                         logger.confirmation(
                             f"Found GOOD proposal at attempt: {attempts}"
                         )
-                        assert start_screen
-                        assert end_screen
                         proposals.append(
                             Proposal(
                                 idx=counter_good_candidates,
@@ -119,8 +135,6 @@ class SimulationManager(BaseManager):
                         logger.confirmation(
                             f"Found BAD proposal at attempt: {attempts}"
                         )
-                        assert start_screen
-                        assert end_screen
                         proposals.append(
                             Proposal(
                                 idx=counter_bad_candidates,
@@ -139,7 +153,7 @@ class SimulationManager(BaseManager):
                     break
             attempts += 1
 
-        self.task.save_proposals(config_name, proposals)
+        self.task.save_proposals(run_config_name, proposals)
 
         if attempts >= config.MAX_ATTEMPTS:
             logger.warning(
@@ -157,7 +171,7 @@ class SimulationManager(BaseManager):
 
         logger.debug(f"Reset task: {self.task}")
 
-    def _display_surface(self) -> None:
+    def _display_frame(self) -> None:
         self.task.space.draw()
         self.surface_manager.scale_and_display()
 
@@ -170,7 +184,7 @@ class SimulationManager(BaseManager):
         # Create ball configuration
         ball_config = {
             "bodyType": 1,
-            "shapeType": 1,
+            "shapeType": Color.Preset.RED.value,
             "position": [x, y],
             "radius": radius,
             "color": 1,

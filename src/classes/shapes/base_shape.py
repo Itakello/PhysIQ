@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 import pymunk
 from itakello_logging import ItakelloLogging
 
-from ...config import config
 from ..types import Color, Position
 
 logger = ItakelloLogging().get_logger(__name__)
@@ -16,6 +15,9 @@ class BaseBody(ABC):
     color: Color
     position: Position
     body_type: int
+    density: float
+    friction: float
+    elasticity: float
     mass: float = 1.0
     body: pymunk.Body = field(init=False)
     shapes: list[pymunk.Shape] = field(init=False, default_factory=list)
@@ -44,8 +46,8 @@ class BaseBody(ABC):
 
     def _set_defaults(self) -> None:
         for shape in self.shapes:
-            shape.density = config.DEFAULT_DENSITY
-            shape.friction = config.DEFAULT_FRICTION
-            shape.elasticity = config.DEFAULT_RESTITUTION
+            shape.density = self.density
+            shape.friction = self.friction
+            shape.elasticity = self.elasticity
             shape.color = self.color.rgba
             shape.collision_type = self.idx
