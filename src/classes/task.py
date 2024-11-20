@@ -56,7 +56,7 @@ class Task:
     def __post_init__(self) -> None:
         self.space = CustomSpace(
             space_iterations=self.run_config["space_iterations"],
-            y_gravity=self.run_config["y_gravity"],
+            y_gravity=self.run_config["gravity"],
         )
         self.bodies = [
             self.create_body(idx + 1, body) for idx, body in enumerate(self.bodies_data)
