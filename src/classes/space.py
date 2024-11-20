@@ -27,6 +27,8 @@ class CustomDrawOptions(pymunk.pygame_util.DrawOptions):
 
 @dataclass
 class CustomSpace(pymunk.Space):
+    space_iterations: float = 10
+    y_gravity: float = 981
     elapsed_time: float = field(init=False, default=0.0)
     _draw_options: CustomDrawOptions | None = field(init=False, default=None)
 
@@ -38,8 +40,8 @@ class CustomSpace(pymunk.Space):
 
     def __post_init__(self) -> None:
         super().__init__()
-        self.gravity = (0, config.DEFAULT_GRAVITY)
-        self.iterations = config.SPACE_ITERATIONS
+        self.gravity = (0, self.y_gravity)
+        self.iterations = self.space_iterations
 
     def add_body(self, body: BaseBody) -> None:
         self.add(body.body, *body.shapes)

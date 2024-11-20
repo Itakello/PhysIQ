@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .task import Task
 
@@ -9,6 +10,7 @@ from .task import Task
 class Template:
     id: str
     category: str
+    run_config: dict[str, Any]
 
     def __post_init__(self) -> None:
         self.path = Path(f"data/templates/{self.category}/{self.id}")
@@ -27,6 +29,7 @@ class Template:
                 data["relationship"]["bodyId2"] + 1,
             ),
             path=task_path,
+            run_config=self.run_config,
         )
 
     def get_all_iterations(self) -> list[Task]:
@@ -45,6 +48,7 @@ class Template:
                         data["relationship"]["bodyId2"] + 1,
                     ),
                     path=task_path,
+                    run_config=self.run_config,
                 )
             )
         return tasks
