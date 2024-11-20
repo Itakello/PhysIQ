@@ -17,7 +17,11 @@ def main() -> None:
     for task in tasks:
         simulation_manager.load_task(task)
         # simulation_manager.find_proposals(config_name="config_001")
-        simulation_manager.test_goal()
+        simulation_manager.test_goal(
+            run_config_name="standard",
+            require_end_screen=True,
+            save_screenshots=True,
+        )
 
 
 if __name__ == "__main__":
