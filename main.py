@@ -12,7 +12,7 @@ def main() -> None:
     template_manager = TemplateManager()
     # print(template_manager.add_configuration())
     template_manager.load_templates(run_configuration_name="standard")
-    tasks = template_manager.get_templates_first_tasks(starting_level="00017")
+    tasks = template_manager.get_templates_first_tasks(starting_level="00000")
 
     for task in tasks:
         simulation_manager.load_task(task)
