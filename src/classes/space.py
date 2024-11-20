@@ -31,6 +31,14 @@ class CustomSpace(pymunk.Space):
     y_gravity: float = 981
     elapsed_time: float = field(init=False, default=0.0)
     _draw_options: CustomDrawOptions | None = field(init=False, default=None)
+    elapsed_time: float = field(init=False, default=0.0)
+
+    def __post_init__(self) -> None:
+        # Initialize the parent pymunk.Space
+        super().__init__()
+        # Set the properties after parent initialization
+        self.iterations = self.iterations
+        self.gravity = self.gravity
 
     @property
     def draw_options(self) -> CustomDrawOptions:

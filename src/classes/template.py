@@ -19,7 +19,7 @@ class Template:
     def get_first_iteration(self) -> Task:
         task_path = self.path / self.tasks[0]
         data = json.loads((task_path / "data.json").read_text())
-        return Task(
+        task = Task(
             id=self.id,
             category=self.category,
             idx=self.tasks[0],
@@ -31,6 +31,7 @@ class Template:
             path=task_path,
             run_config=self.run_config,
         )
+        return task
 
     def get_all_iterations(self) -> list[Task]:
         tasks = []

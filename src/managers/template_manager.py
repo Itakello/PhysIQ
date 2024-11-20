@@ -49,7 +49,6 @@ class TemplateManager(BaseManager):
 
     def add_run_configuration(self) -> str:
         metadata = {
-            "gravity": config.DEFAULT_GRAVITY,
             "density": config.DEFAULT_DENSITY,
             "friction": config.DEFAULT_FRICTION,
             "elasticity": config.DEFAULT_ELASTICITY,
