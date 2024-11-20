@@ -3,19 +3,22 @@ from itakello_logging import ItakelloLogging
 from src.managers import SimulationManager, TemplateManager
 
 logger = ItakelloLogging(
-    debug=False, excluded_modules=["pymunk.space", "pymunk.shapes", "pymunk.body"]
+    debug=True, excluded_modules=["pymunk.space", "pymunk.shapes", "pymunk.body"]
 ).get_logger(__name__)
 
 
 def main() -> None:
-    simulation_manager = SimulationManager(show_visualization=False)
+    simulation_manager = SimulationManager(show_visualization=True)
     template_manager = TemplateManager()
-    # print(template_manager.add_configuration())
-    tasks = template_manager.get_templates_first_tasks(starting_level="00017")
+    # print(template_manager.add_run_configuration())
+    template_manager.load_templates(run_configuration_name="run_001")
+    tasks = template_manager.get_templates_first_tasks(starting_level="00000")
 
     for task in tasks:
         simulation_manager.load_task(task)
-        simulation_manager.find_proposals(config_name="config_001")
+        simulation_manager.find_proposals(
+            save_screenshots=False, run_config_name="run_001"
+        )
         # simulation_manager.test_goal()
 
 

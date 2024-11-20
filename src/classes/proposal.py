@@ -12,8 +12,8 @@ from .shapes.circle import Circle
 class Proposal:
     idx: int
     bodies: list[Circle]
-    start_screen: pygame.Surface
-    end_screen: pygame.Surface
+    start_screen: pygame.Surface | None
+    end_screen: pygame.Surface | None
     good: bool
 
     def save(self, path: Path) -> None:
@@ -27,7 +27,9 @@ class Proposal:
             f.write(json.dumps(data, indent=4))
 
         # Save the start screen
-        pygame.image.save(self.start_screen, path / f"{file_name}_start.png")
+        if self.start_screen:
+            pygame.image.save(self.start_screen, path / f"{file_name}_start.png")
 
         # Save the end screen
-        pygame.image.save(self.end_screen, path / f"{file_name}_end.png")
+        if self.end_screen:
+            pygame.image.save(self.end_screen, path / f"{file_name}_end.png")
