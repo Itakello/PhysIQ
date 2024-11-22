@@ -48,12 +48,14 @@ class Task:
     collision_pair_indices: tuple[int, int]
     path: Path
     run_config: dict
+    n_balls: int = field(init=False)
     space: CustomSpace = field(init=False)
     bodies: list[BaseBody] = field(init=False, default_factory=list)
     handler: pymunk.CollisionHandler = field(init=False)
     initial_bodies_config: list[dict] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        self.n_balls = int(self.category.split("_")[0])
         self.space = CustomSpace(
             space_iterations=self.run_config["space_iterations"],
             y_gravity=self.run_config["gravity"],

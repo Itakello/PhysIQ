@@ -25,9 +25,9 @@ class SimulationManager(BaseManager):
     runs_configurations: CustomDict = field(init=False)
 
     def __post_init__(self) -> None:
-        if self.show_visualization:
-            pygame.init()
-            self.surface_manager.create_surfaces()
+        # if self.show_visualization:
+        pygame.init()
+        self.surface_manager.create_surfaces()
         self.runs_configurations = CustomDict(
             file_name="runs_configuration.json",
             position=Path("data"),
@@ -37,8 +37,8 @@ class SimulationManager(BaseManager):
         pygame.display.set_caption(
             f"Pymunk Simulation - {task.category}:{task.id}:{task.idx}"
         )
-        if self.show_visualization:
-            task.space.link_screen(self.surface_manager.sim_surface)
+        # if self.show_visualization:
+        task.space.link_screen(self.surface_manager.sim_surface)
         self.task = task
         self.task.space.elapsed_time = 0.0
         logger.confirmation(f"Loaded task: {task}")
@@ -70,23 +70,20 @@ class SimulationManager(BaseManager):
             elif self.show_visualization:
                 self._display_frame()
 
-            if self.task.handler.data["goal_reached"]:
-                if self.show_visualization or save_screenshots:
+            # Check if the goal has been reached or the simulation has run for too long
+            if (
+                self.task.handler.data["goal_reached"]
+                or self.task.space.elapsed_time >= config.SIMULATION_DURATION_THRESHOLD
+            ):
+                if save_screenshots and require_end_screen:
                     self.surface_manager.clear_sim_surface()
-                if save_screenshots:
                     self._display_frame()
                     end_screen = self.surface_manager.get_snapshot()
-                return (True, start_screen, end_screen)
-
-            # Time limit check
-            if self.task.space.elapsed_time >= config.SIMULATION_DURATION_THRESHOLD:
-                if require_end_screen:
-                    if self.show_visualization:
-                        self.surface_manager.clear_sim_surface()
-                    if save_screenshots:
-                        self._display_frame()
-                        end_screen = self.surface_manager.get_snapshot()
-                return (False, start_screen, end_screen)
+                return (
+                    self.task.handler.data["goal_reached"],
+                    start_screen,
+                    end_screen,
+                )
 
             self.task.space.elapsed_time += fixed_dt
             self.task.space.step(fixed_dt)
@@ -103,54 +100,59 @@ class SimulationManager(BaseManager):
             or counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES
             or counter_bad_candidates < config.NUMBER_OF_BAD_CANDIDATES
         ):
-            ball = self._create_random_ball()
+            # Add balls to the space
+            balls = []
+            while len(balls) < self.task.n_balls:
+                ball = self._create_random_ball()
+                if not self.task.space.check_collisions(ball):
+                    self.task.space.add_body(ball)
+                    balls.append(ball)
 
-            # Check for collisions with existing bodies
-            if not self.task.space.check_collisions(ball):
-                self.task.space.add_body(ball)
-                logger.debug(f"Found valid position for ball at attempt: {attempts}")
-                accomplished, start_screen, end_screen = self.test_goal(
-                    run_config_name=run_config_name,
-                    require_end_screen=counter_bad_candidates
-                    < config.NUMBER_OF_BAD_CANDIDATES,
-                    save_screenshots=save_screenshots,
-                )
-                if accomplished:
-                    if counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES:
-                        logger.confirmation(
-                            f"Found GOOD proposal at attempt: {attempts}"
+            # Test the goal
+            logger.debug(f"Found valid position for ball at attempt: {attempts}")
+            accomplished, start_screen, end_screen = self.test_goal(
+                run_config_name=run_config_name,
+                require_end_screen=counter_bad_candidates
+                < config.NUMBER_OF_BAD_CANDIDATES,
+                save_screenshots=save_screenshots,
+            )
+
+            # Remove the balls
+            for ball in balls:
+                self.task.space.remove_body(ball)
+
+            if accomplished:
+                if counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES:
+                    logger.confirmation(f"Found GOOD proposal at attempt: {attempts}")
+                    proposals.append(
+                        Proposal(
+                            idx=counter_good_candidates,
+                            bodies=balls,
+                            start_screen=start_screen,
+                            end_screen=end_screen,
+                            good=True,
                         )
-                        proposals.append(
-                            Proposal(
-                                idx=counter_good_candidates,
-                                bodies=[ball],
-                                start_screen=start_screen,
-                                end_screen=end_screen,
-                                good=True,
-                            )
+                    )
+                    counter_good_candidates += 1
+            else:
+                if counter_bad_candidates < config.NUMBER_OF_BAD_CANDIDATES:
+                    logger.confirmation(f"Found BAD proposal at attempt: {attempts}")
+                    proposals.append(
+                        Proposal(
+                            idx=counter_bad_candidates,
+                            bodies=balls,
+                            start_screen=start_screen,
+                            end_screen=end_screen,
+                            good=False,
                         )
-                        counter_good_candidates += 1
-                else:
-                    if counter_bad_candidates < config.NUMBER_OF_BAD_CANDIDATES:
-                        logger.confirmation(
-                            f"Found BAD proposal at attempt: {attempts}"
-                        )
-                        proposals.append(
-                            Proposal(
-                                idx=counter_bad_candidates,
-                                bodies=[ball],
-                                start_screen=start_screen,
-                                end_screen=end_screen,
-                                good=False,
-                            )
-                        )
-                        counter_bad_candidates += 1
-                self.reset_task()
-                if (
-                    counter_good_candidates >= config.NUMBER_OF_GOOD_CANDIDATES
-                    and counter_bad_candidates >= config.NUMBER_OF_BAD_CANDIDATES
-                ):
-                    break
+                    )
+                    counter_bad_candidates += 1
+            self.reset_task()
+            if (
+                counter_good_candidates >= config.NUMBER_OF_GOOD_CANDIDATES
+                and counter_bad_candidates >= config.NUMBER_OF_BAD_CANDIDATES
+            ):
+                break
             attempts += 1
 
         self.task.save_proposals(run_config_name, proposals)
@@ -170,6 +172,9 @@ class SimulationManager(BaseManager):
             self.task.space.link_screen(self.surface_manager.sim_surface)
 
         logger.debug(f"Reset task: {self.task}")
+
+    def get_run_config_names(self) -> list[str]:
+        return list(self.runs_configurations["runs"].keys())
 
     def _display_frame(self) -> None:
         self.task.space.draw()

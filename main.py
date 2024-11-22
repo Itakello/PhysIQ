@@ -1,27 +1,31 @@
 from itakello_logging import ItakelloLogging
+from tqdm import tqdm
 
 from src.managers import SimulationManager, TemplateManager
 
 logger = ItakelloLogging(
-    debug=True, excluded_modules=["pymunk.space", "pymunk.shapes", "pymunk.body"]
+    debug=False, excluded_modules=["pymunk.space", "pymunk.shapes", "pymunk.body"]
 ).get_logger(__name__)
 
 
 def main() -> None:
-    simulation_manager = SimulationManager(show_visualization=True)
+    simulation_manager = SimulationManager(show_visualization=False)
+    config_names = simulation_manager.get_run_config_names()
     template_manager = TemplateManager()
-    # print(template_manager.add_configuration())
-    template_manager.load_templates(run_configuration_name="standard")
-    tasks = template_manager.get_templates_first_tasks(starting_level="00000")
 
-    for task in tasks:
-        simulation_manager.load_task(task)
-        # simulation_manager.find_proposals(config_name="config_001")
-        simulation_manager.test_goal(
-            run_config_name="standard",
-            require_end_screen=True,
-            save_screenshots=True,
-        )
+    for config_name in tqdm(
+        config_names, desc="Iterating over run configs", leave=False
+    ):
+        template_manager.load_templates(run_config_name=config_name)
+        tasks = template_manager.get_templates_first_tasks(starting_level="00100")
+
+        for task in tqdm(
+            tasks, desc=f"[{config_name}] Iterating over tasks", leave=False
+        ):
+            simulation_manager.load_task(task)
+            simulation_manager.find_proposals(
+                run_config_name=config_name, save_screenshots=True
+            )
 
 
 if __name__ == "__main__":

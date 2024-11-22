@@ -20,7 +20,7 @@ class TemplateManager(BaseManager):
             file_name="runs_configuration.json", position=Path("data")
         )
 
-    def load_templates(self, run_configuration_name: str) -> None:
+    def load_templates(self, run_config_name: str) -> None:
         template_path = Path("data") / "templates"
         categories = [d.name for d in template_path.iterdir() if d.is_dir()]
         for category in categories:
@@ -31,7 +31,7 @@ class TemplateManager(BaseManager):
                 self.templates[level] = Template(
                     id=level,
                     category=category,
-                    run_config=self.runs_configurations["runs"][run_configuration_name],
+                    run_config=self.runs_configurations["runs"][run_config_name],
                 )
 
     def get_templates_first_tasks(self, starting_level: str = "00000") -> list[Task]:
@@ -41,10 +41,10 @@ class TemplateManager(BaseManager):
             if name >= starting_level
         ]
 
-    def get_templates_all_tasks(self) -> list[Task]:
+    def get_templates_tasks(self, limit: int) -> list[Task]:
         tasks = []
         for level in self.templates.values():
-            tasks.extend(level.get_all_iterations())
+            tasks.extend(level.get_iterations(limit=limit))
         return tasks
 
     def add_run_configuration(self) -> str:

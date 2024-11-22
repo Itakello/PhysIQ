@@ -33,9 +33,12 @@ class Template:
         )
         return task
 
-    def get_all_iterations(self) -> list[Task]:
+    def get_iterations(self, limit: int = -1) -> list[Task]:
+        assert limit >= -1
+        if limit == -1:
+            limit = len(self.tasks)
         tasks = []
-        for task in self.tasks:
+        for task in self.tasks[:limit]:
             task_path = self.path / task
             data = json.loads((task_path / "data.json").read_text())
             tasks.append(

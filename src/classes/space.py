@@ -34,22 +34,15 @@ class CustomSpace(pymunk.Space):
     elapsed_time: float = field(init=False, default=0.0)
 
     def __post_init__(self) -> None:
-        # Initialize the parent pymunk.Space
         super().__init__()
-        # Set the properties after parent initialization
-        self.iterations = self.iterations
-        self.gravity = self.gravity
+        self.gravity = (0, self.y_gravity)
+        self.iterations = self.space_iterations
 
     @property
     def draw_options(self) -> CustomDrawOptions:
         if self._draw_options is None:
             raise RuntimeError("Screen must be linked before drawing")
         return self._draw_options
-
-    def __post_init__(self) -> None:
-        super().__init__()
-        self.gravity = (0, self.y_gravity)
-        self.iterations = self.space_iterations
 
     def add_body(self, body: BaseBody) -> None:
         self.add(body.body, *body.shapes)
