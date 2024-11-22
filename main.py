@@ -7,6 +7,8 @@ logger = ItakelloLogging(
     debug=False, excluded_modules=["pymunk.space", "pymunk.shapes", "pymunk.body"]
 ).get_logger(__name__)
 
+ATTEMPTS_PER_TASK = 5
+
 
 def main() -> None:
     simulation_manager = SimulationManager(show_visualization=False)
@@ -17,7 +19,7 @@ def main() -> None:
         config_names, desc="Iterating over run configs", leave=False
     ):
         template_manager.load_templates(run_config_name=config_name)
-        tasks = template_manager.get_templates_first_tasks(starting_level="00100")
+        tasks = template_manager.get_templates_tasks(limit=ATTEMPTS_PER_TASK)
 
         for task in tqdm(
             tasks, desc=f"[{config_name}] Iterating over tasks", leave=False

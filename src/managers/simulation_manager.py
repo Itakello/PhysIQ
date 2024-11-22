@@ -91,12 +91,12 @@ class SimulationManager(BaseManager):
     def find_proposals(
         self, run_config_name: str, save_screenshots: bool = False
     ) -> None:
-        attempts = 0
+        attempt = 0
         counter_good_candidates = 0
         counter_bad_candidates = 0
         proposals = []
         while (
-            attempts < config.MAX_ATTEMPTS
+            attempt < config.MAX_ATTEMPTS
             or counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES
             or counter_bad_candidates < config.NUMBER_OF_BAD_CANDIDATES
         ):
@@ -109,7 +109,7 @@ class SimulationManager(BaseManager):
                     balls.append(ball)
 
             # Test the goal
-            logger.debug(f"Found valid position for ball at attempt: {attempts}")
+            logger.debug(f"Found valid position for ball at attempt: {attempt}")
             accomplished, start_screen, end_screen = self.test_goal(
                 run_config_name=run_config_name,
                 require_end_screen=counter_bad_candidates
@@ -123,10 +123,11 @@ class SimulationManager(BaseManager):
 
             if accomplished:
                 if counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES:
-                    logger.confirmation(f"Found GOOD proposal at attempt: {attempts}")
+                    logger.confirmation(f"Found GOOD proposal at attempt: {attempt}")
                     proposals.append(
                         Proposal(
                             idx=counter_good_candidates,
+                            attempt=attempt,
                             bodies=balls,
                             start_screen=start_screen,
                             end_screen=end_screen,
@@ -136,10 +137,11 @@ class SimulationManager(BaseManager):
                     counter_good_candidates += 1
             else:
                 if counter_bad_candidates < config.NUMBER_OF_BAD_CANDIDATES:
-                    logger.confirmation(f"Found BAD proposal at attempt: {attempts}")
+                    logger.confirmation(f"Found BAD proposal at attempt: {attempt}")
                     proposals.append(
                         Proposal(
                             idx=counter_bad_candidates,
+                            attempt=attempt,
                             bodies=balls,
                             start_screen=start_screen,
                             end_screen=end_screen,
@@ -153,11 +155,11 @@ class SimulationManager(BaseManager):
                 and counter_bad_candidates >= config.NUMBER_OF_BAD_CANDIDATES
             ):
                 break
-            attempts += 1
+            attempt += 1
 
         self.task.save_proposals(run_config_name, proposals)
 
-        if attempts >= config.MAX_ATTEMPTS:
+        if attempt >= config.MAX_ATTEMPTS:
             logger.warning(
                 "Could not find valid position for random ball after max attempts"
             )

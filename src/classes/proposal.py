@@ -11,6 +11,7 @@ from .shapes.circle import Circle
 @dataclass
 class Proposal:
     idx: int
+    attempt: int
     bodies: list[Circle]
     start_screen: pygame.Surface | None
     end_screen: pygame.Surface | None
@@ -22,6 +23,7 @@ class Proposal:
         # Save the json file
         data = {
             "bodies": [body.to_dict() for body in self.bodies],
+            "attempt": self.attempt,
         }
         with (path / f"{file_name}.json").open("w") as f:
             f.write(json.dumps(data, indent=4))
