@@ -25,7 +25,7 @@ class TemplateManager(BaseManager):
         categories = [d.name for d in template_path.iterdir() if d.is_dir()]
         for category in categories:
             levels = [
-                d.name for d in (template_path / category).iterdir() if d.is_dir()
+                d.name for d in sorted((template_path / category).iterdir()) if d.is_dir()
             ]
             for level in levels:
                 self.templates[level] = Template(
@@ -36,7 +36,7 @@ class TemplateManager(BaseManager):
 
     def get_templates_first_tasks(self, starting_level: str = "00000") -> list[Task]:
         return [
-            level.get_first_iteration()
+            level.get_first_task()
             for name, level in self.templates.items()
             if name >= starting_level
         ]
@@ -47,7 +47,7 @@ class TemplateManager(BaseManager):
         tasks = []
         for level in self.templates.values():
             if level.id >= starting_level:
-                tasks.extend(level.get_iterations(limit=limit))
+                tasks.extend(level.get_tasks(limit=limit))
         return tasks
 
     def add_run_configuration(self) -> str:

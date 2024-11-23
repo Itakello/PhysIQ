@@ -14,9 +14,9 @@ class Template:
 
     def __post_init__(self) -> None:
         self.path = Path(f"data/templates/{self.category}/{self.id}")
-        self.tasks = [d.name for d in self.path.iterdir() if d.is_dir()]
+        self.tasks = [d.name for d in sorted(self.path.iterdir()) if d.is_dir()]
 
-    def get_first_iteration(self) -> Task:
+    def get_first_task(self) -> Task:
         task_path = self.path / self.tasks[0]
         data = json.loads((task_path / "data.json").read_text())
         task = Task(
@@ -33,7 +33,7 @@ class Template:
         )
         return task
 
-    def get_iterations(self, limit: int = -1) -> list[Task]:
+    def get_tasks(self, limit: int = -1) -> list[Task]:
         assert limit >= -1
         if limit == -1:
             limit = len(self.tasks)
