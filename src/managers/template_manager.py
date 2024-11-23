@@ -41,10 +41,13 @@ class TemplateManager(BaseManager):
             if name >= starting_level
         ]
 
-    def get_templates_tasks(self, limit: int) -> list[Task]:
+    def get_templates_tasks(
+        self, limit: int, starting_level: str = "00000"
+    ) -> list[Task]:
         tasks = []
         for level in self.templates.values():
-            tasks.extend(level.get_iterations(limit=limit))
+            if level.id >= starting_level:
+                tasks.extend(level.get_iterations(limit=limit))
         return tasks
 
     def add_run_configuration(self) -> str:

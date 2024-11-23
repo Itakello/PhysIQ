@@ -16,13 +16,18 @@ def main() -> None:
     template_manager = TemplateManager()
 
     for config_name in tqdm(
-        config_names, desc="Iterating over run configs", leave=False
+        config_names, desc="Iterating over run configs", leave=False, dynamic_ncols=True
     ):
         template_manager.load_templates(run_config_name=config_name)
-        tasks = template_manager.get_templates_tasks(limit=ATTEMPTS_PER_TASK)
+        tasks = template_manager.get_templates_tasks(
+            limit=ATTEMPTS_PER_TASK, starting_level="00000"
+        )
 
         for task in tqdm(
-            tasks, desc=f"[{config_name}] Iterating over tasks", leave=False
+            tasks,
+            desc=f"[{config_name}] Iterating over tasks",
+            leave=False,
+            dynamic_ncols=True,
         ):
             simulation_manager.load_task(task)
             simulation_manager.find_proposals(

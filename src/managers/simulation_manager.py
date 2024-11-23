@@ -48,7 +48,8 @@ class SimulationManager(BaseManager):
     def test_goal(
         self,
         run_config_name: str,
-        require_end_screen: bool = True,
+        require_good_end_screen: bool = True,
+        require_bad_end_screen: bool = True,
         save_screenshots: bool = False,
     ) -> tuple[bool, pygame.Surface | None, pygame.Surface | None]:
         current_run_config = self.runs_configurations["runs"][run_config_name]
@@ -75,10 +76,17 @@ class SimulationManager(BaseManager):
                 self.task.handler.data["goal_reached"]
                 or self.task.space.elapsed_time >= config.SIMULATION_DURATION_THRESHOLD
             ):
-                if save_screenshots and require_end_screen:
-                    self.surface_manager.clear_sim_surface()
-                    self._display_frame()
-                    end_screen = self.surface_manager.get_snapshot()
+                if save_screenshots:
+                    if (
+                        self.task.handler.data["goal_reached"]
+                        and require_good_end_screen
+                    ) or (
+                        not self.task.handler.data["goal_reached"]
+                        and require_bad_end_screen
+                    ):
+                        self.surface_manager.clear_sim_surface()
+                        self._display_frame()
+                        end_screen = self.surface_manager.get_snapshot()
                 return (
                     self.task.handler.data["goal_reached"],
                     start_screen,
@@ -95,11 +103,7 @@ class SimulationManager(BaseManager):
         counter_good_candidates = 0
         counter_bad_candidates = 0
         proposals = []
-        while (
-            attempt < config.MAX_ATTEMPTS
-            or counter_good_candidates < config.NUMBER_OF_GOOD_CANDIDATES
-            or counter_bad_candidates < config.NUMBER_OF_BAD_CANDIDATES
-        ):
+        while attempt < config.MAX_ATTEMPTS:
             # Add balls to the space
             balls = []
             while len(balls) < self.task.n_balls:
@@ -112,8 +116,10 @@ class SimulationManager(BaseManager):
             logger.debug(f"Found valid position for ball at attempt: {attempt}")
             accomplished, start_screen, end_screen = self.test_goal(
                 run_config_name=run_config_name,
-                require_end_screen=counter_bad_candidates
+                require_bad_end_screen=counter_bad_candidates
                 < config.NUMBER_OF_BAD_CANDIDATES,
+                require_good_end_screen=counter_good_candidates
+                < config.NUMBER_OF_GOOD_CANDIDATES,
                 save_screenshots=save_screenshots,
             )
 
