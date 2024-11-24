@@ -7,7 +7,7 @@ from pymunk.space_debug_draw_options import SpaceDebugColor
 from pymunk.vec2d import Vec2d
 
 from src.classes.shapes import BaseBody
-from src.config import config
+from config import const
 
 from .shapes.circle import Circle
 
@@ -57,7 +57,7 @@ class CustomSpace(pymunk.Space):
     def link_screen(self, screen: pygame.Surface) -> None:
         self._draw_options = CustomDrawOptions(screen)
         self._draw_options.transform = pymunk.Transform.scaling(
-            config.RESOLUTION_SCALE_FACTOR
+            const.RESOLUTION_SCALE_FACTOR
         )
         self._draw_options.flags = pymunk.pygame_util.DrawOptions.DRAW_SHAPES
 

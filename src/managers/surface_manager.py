@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pygame
 
-from ..config import config
+from ..config import const
 from .base_manager import BaseManager
 
 
@@ -25,10 +25,10 @@ class SurfaceManager(BaseManager):
 
     def create_surfaces(self) -> None:
         self._screen = pygame.display.set_mode(
-            [dim * config.SCREEN_SCALE_FACTOR for dim in config.SCENE_DIMENSIONS]
+            [dim * const.SCREEN_SCALE_FACTOR for dim in const.SCENE_DIMENSIONS]
         )
         self._sim_surface = pygame.Surface(
-            [dim * config.RESOLUTION_SCALE_FACTOR for dim in config.SCENE_DIMENSIONS]
+            [dim * const.RESOLUTION_SCALE_FACTOR for dim in const.SCENE_DIMENSIONS]
         )
 
     def clear_sim_surface(self) -> None:

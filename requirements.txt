@@ -3,3 +3,4 @@ pygame
 jsonschema
 tqdm
 itakello_logging
+wandb

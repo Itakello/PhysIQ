@@ -29,7 +29,8 @@
             "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "args": [
-                "00002_000.json"
+                "-c",
+                "standard"
             ]
         }
     ]

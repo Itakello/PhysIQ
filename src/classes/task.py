@@ -6,7 +6,7 @@ from typing import Literal
 import pymunk
 from itakello_logging import ItakelloLogging
 
-from ..config import config
+from ..config import const
 from .proposal import Proposal
 from .shapes import BaseBody, Circle, Compound, Polygon
 from .space import CustomSpace
@@ -26,7 +26,7 @@ def pre_solve(arbiter: pymunk.Arbiter, space: CustomSpace, data: dict) -> Litera
     start_time = data["collisions"].get(shapes)
     if start_time is not None:
         elapsed_time = space.elapsed_time - start_time
-        if elapsed_time >= config.COLLISION_DURATION_THRESHOLD:
+        if elapsed_time >= const.COLLISION_DURATION_THRESHOLD:
             data["goal_reached"] = True
             del data["collisions"][shapes]
     return True
