@@ -20,7 +20,7 @@ class Template:
         task_path = self.path / self.tasks[0]
         data = json.loads((task_path / "data.json").read_text())
         task = Task(
-            id=self.id,
+            template_id=self.id,
             category=self.category,
             idx=self.tasks[0],
             bodies_data=data["bodies"],
@@ -43,7 +43,7 @@ class Template:
             data = json.loads((task_path / "data.json").read_text())
             tasks.append(
                 Task(
-                    id=self.id,
+                    template_id=self.id,
                     category=self.category,
                     idx=task,
                     bodies_data=data["bodies"],

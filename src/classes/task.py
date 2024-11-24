@@ -41,7 +41,7 @@ def separate(arbiter: pymunk.Arbiter, space: CustomSpace, data: dict) -> None:
 
 @dataclass
 class Task:
-    id: str
+    template_id: str
     category: str
     idx: str
     bodies_data: dict
@@ -148,7 +148,7 @@ class Task:
         logger.debug("RESETTING SHAPES")
 
     def __str__(self) -> str:
-        return f"{self.id} - {self.idx}"
+        return f"{self.template_id}:{self.idx}"
 
     def _setup_collision_handler(self) -> None:
         self.handler.data["collisions"] = {}

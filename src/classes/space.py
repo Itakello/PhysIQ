@@ -7,8 +7,8 @@ from pymunk.space_debug_draw_options import SpaceDebugColor
 from pymunk.vec2d import Vec2d
 
 from src.classes.shapes import BaseBody
-from config import const
 
+from ..config import const
 from .shapes.circle import Circle
 
 
