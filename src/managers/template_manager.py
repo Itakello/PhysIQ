@@ -67,7 +67,7 @@ class TemplateManager(BaseManager):
         tot_bad_candidates = 0
         skipped_templates = 0
 
-        for template_id in self.template_ids:
+        for template_id in self.template_ids[:]:
             template_failures = 0
             template_successes = 0
             template_good_candidates = 0

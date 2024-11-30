@@ -8,39 +8,7 @@
             "time_scale": 0.25,
             "space_iterations": 20
         },
-        "more_friction": {
-            "gravity": 981,
-            "density": 1,
-            "friction": 0.7,
-            "elasticity": 0.5,
-            "time_scale": 0.25,
-            "space_iterations": 20
-        },
-        "more_elastic": {
-            "gravity": 981,
-            "density": 1,
-            "friction": 0.5,
-            "elasticity": 0.7,
-            "time_scale": 0.25,
-            "space_iterations": 20
-        },
-        "more_friction_more_elastic": {
-            "gravity": 981,
-            "density": 1,
-            "friction": 0.7,
-            "elasticity": 0.7,
-            "time_scale": 0.25,
-            "space_iterations": 20
-        },
-        "less_elastic": {
-            "gravity": 981,
-            "density": 1,
-            "friction": 0.5,
-            "elasticity": 0.3,
-            "time_scale": 0.25,
-            "space_iterations": 20
-        },
-        "less_friction": {
+        "lower_friction": {
             "gravity": 981,
             "density": 1,
             "friction": 0.3,
@@ -48,19 +16,27 @@
             "time_scale": 0.25,
             "space_iterations": 20
         },
-        "less_friction_less_elastic": {
+        "higher_friction": {
             "gravity": 981,
             "density": 1,
-            "friction": 0.3,
+            "friction": 0.7,
+            "elasticity": 0.5,
+            "time_scale": 0.25,
+            "space_iterations": 20
+        },
+        "lower_elasticity": {
+            "gravity": 981,
+            "density": 1,
+            "friction": 0.5,
             "elasticity": 0.3,
             "time_scale": 0.25,
             "space_iterations": 20
         },
-        "higher_gravity": {
-            "gravity": 1000,
+        "higher_elasticity": {
+            "gravity": 981,
             "density": 1,
             "friction": 0.5,
-            "elasticity": 0.5,
+            "elasticity": 0.7,
             "time_scale": 0.25,
             "space_iterations": 20
         },
@@ -72,101 +48,61 @@
             "time_scale": 0.25,
             "space_iterations": 20
         },
-        "higher_gravity_higher_friction": {
+        "higher_gravity": {
             "gravity": 1000,
             "density": 1,
-            "friction": 0.7,
+            "friction": 0.5,
             "elasticity": 0.5,
             "time_scale": 0.25,
             "space_iterations": 20
         },
-        "higher_gravity_higher_elasticity": {
-            "gravity": 1000,
-            "density": 1,
+        "lower_density": {
+            "gravity": 981,
+            "density": 0.5,
             "friction": 0.5,
-            "elasticity": 0.7,
-            "time_scale": 0.25,
-            "space_iterations": 20
-        },
-        "higher_gravity_higher_friction_higher_elasticity": {
-            "gravity": 1000,
-            "density": 1,
-            "friction": 0.7,
-            "elasticity": 0.7,
-            "time_scale": 0.25,
-            "space_iterations": 20
-        },
-        "higher_gravity_lower_elasticity": {
-            "gravity": 1000,
-            "density": 1,
-            "friction": 0.5,
-            "elasticity": 0.3,
-            "time_scale": 0.25,
-            "space_iterations": 20
-        },
-        "higher_gravity_lower_friction": {
-            "gravity": 1000,
-            "density": 1,
-            "friction": 0.3,
             "elasticity": 0.5,
             "time_scale": 0.25,
             "space_iterations": 20
         },
-        "higher_gravity_lower_friction_lower_elasticity": {
-            "gravity": 1000,
-            "density": 1,
-            "friction": 0.3,
-            "elasticity": 0.3,
-            "time_scale": 0.25,
-            "space_iterations": 20
-        },
-        "lower_gravity_higher_friction": {
-            "gravity": 900,
-            "density": 1,
-            "friction": 0.7,
+        "higher_density": {
+            "gravity": 981,
+            "density": 2,
+            "friction": 0.5,
             "elasticity": 0.5,
             "time_scale": 0.25,
             "space_iterations": 20
         },
-        "lower_gravity_higher_elasticity": {
-            "gravity": 900,
+        "lower_time_scale": {
+            "gravity": 981,
             "density": 1,
             "friction": 0.5,
-            "elasticity": 0.7,
-            "time_scale": 0.25,
+            "elasticity": 0.5,
+            "time_scale": 0.1,
             "space_iterations": 20
         },
-        "lower_gravity_higher_friction_higher_elasticity": {
-            "gravity": 900,
-            "density": 1,
-            "friction": 0.7,
-            "elasticity": 0.7,
-            "time_scale": 0.25,
-            "space_iterations": 20
-        },
-        "lower_gravity_lower_elasticity": {
-            "gravity": 900,
+        "higher_time_scale": {
+            "gravity": 981,
             "density": 1,
             "friction": 0.5,
-            "elasticity": 0.3,
-            "time_scale": 0.25,
+            "elasticity": 0.5,
+            "time_scale": 0.5,
             "space_iterations": 20
         },
-        "lower_gravity_lower_friction": {
-            "gravity": 900,
+        "lower_space_iterations": {
+            "gravity": 981,
             "density": 1,
-            "friction": 0.3,
+            "friction": 0.5,
             "elasticity": 0.5,
             "time_scale": 0.25,
-            "space_iterations": 20
+            "space_iterations": 10
         },
-        "lower_gravity_lower_friction_lower_elasticity": {
-            "gravity": 900,
+        "higher_space_iterations": {
+            "gravity": 981,
             "density": 1,
-            "friction": 0.3,
-            "elasticity": 0.3,
+            "friction": 0.5,
+            "elasticity": 0.5,
             "time_scale": 0.25,
-            "space_iterations": 20
+            "space_iterations": 30
         }
     }
 }

@@ -1,3 +1,7 @@
+import torch
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
 # Simulation constants
 SCREEN_SCALE_FACTOR = 2
 RESOLUTION_SCALE_FACTOR = 4

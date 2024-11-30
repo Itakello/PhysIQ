@@ -3,11 +3,11 @@ import json
 from pathlib import Path
 
 from itakello_logging import ItakelloLogging
-from tqdm import tqdm
 
 import wandb
 from src.config import const
 from src.managers import SimulationManager, TemplateManager
+from src.models.falcon_model import FalconModel
 
 ATTEMPTS_PER_TASK = 5
 MAX_FAILURES = 3
@@ -53,7 +53,17 @@ def initialize_wandb(config_name: str, config: dict) -> None:
     )
 
 
-def main(args: argparse.Namespace) -> None:
+def create_dataset(args: argparse.Namespace) -> None:
+    """model = FalconModel(
+        name="falcon-11B-vlm",
+        id="tiiuae/falcon-11B-vlm",
+    )
+    print(
+        model.predict(
+            "What's this?",
+            "https://th.bing.com/th/id/OIP.fOuB9rLGFXQ5GRCTM6dC1QAAAA?w=252&h=190&c=7&r=0&o=5&dpr=1.1&pid=1.7",
+        )
+    )"""
     run_config = get_config(config_name=args.config)
     initialize_wandb(config_name=args.config, config=run_config)
 
@@ -73,4 +83,4 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args)
+    create_dataset(args)
