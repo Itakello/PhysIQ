@@ -5,14 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "PowerShell Launch Script",
+            "name": "Dataset conversion",
             "type": "PowerShell",
             "request": "launch",
-            "script": "${workspaceFolder}/start.ps1",
+            "script": "${workspaceFolder}/scripts/0_dataset_conversion.py",
             "cwd": "${workspaceFolder}",
             "args": [
-                "-StartTemplate",
-                "00009"
+                "-o",
+                "output_file_path"
             ]
         },
         {

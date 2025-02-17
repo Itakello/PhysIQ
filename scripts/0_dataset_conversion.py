@@ -14,13 +14,6 @@ def parse_args() -> argparse.Namespace:
         description="Convert raw datasets to training format."
     )
     parser.add_argument(
-        "-i",
-        "--input-dir",
-        type=Path,
-        required=True,
-        help="Input directory containing raw data",
-    )
-    parser.add_argument(
         "-o",
         "--output-dir",
         type=Path,
