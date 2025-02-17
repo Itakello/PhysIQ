@@ -6,4 +6,5 @@ wandb/
 .cursorrules
 
 data/
+data_old/
 .mypy_cache/

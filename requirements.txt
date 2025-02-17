@@ -8,3 +8,4 @@ weave
 transformers
 torch
 Pillow
+loguru
