@@ -5,4 +5,5 @@ logs/
 wandb/
 .cursorrules
 
-data/templates/*
+data/
+.mypy_cache/
