@@ -2,8 +2,6 @@ import argparse
 import json
 from pathlib import Path
 
-from itakello_logging import ItakelloLogging
-
 import wandb
 from src.config import const
 from src.managers import SimulationManager, TemplateManager

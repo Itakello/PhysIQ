@@ -7,6 +7,8 @@
 4. `pytest`: for writing and running unit tests.
 5. `weave`: for tracking LLM evaluations.
 6. `liteLLM`: for calling LLMs.
+7. `streamlit`: for building interactive data applications and dashboards with minimal code.
+8. `fastapi`: for creating high-performance, type-safe REST APIs with automatic OpenAPI documentation.
 
 ## Code-generation instructions
 1. Always write concise, maintainable Python code.

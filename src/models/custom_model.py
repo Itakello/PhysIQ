@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 
-import weave
+import weave.flow.model
 from pydantic import BaseModel
 
 
@@ -12,7 +12,7 @@ class ModelBackend(Enum):
     ANTHROPIC = "anthropic"
 
 
-class CustomModel(ABC, weave.Model, BaseModel):
+class CustomModel(ABC, weave.flow.model.Model, BaseModel):
     id: str
     backend: ModelBackend
 
