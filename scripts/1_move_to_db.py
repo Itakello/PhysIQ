@@ -57,8 +57,9 @@ def load_puzzle_from_json(json_path: Path) -> dict:
     puzzle_dict["puzzle_id"] = puzzle_id
 
     # Add puzzle_type from metadata tier
-    puzzle_dict["puzzle_type"] = ["BALL", "TWO_BALLS"][puzzle_dict["metadata"]["tier"]]
-    puzzle_dict["extra_info"] = {}
+    puzzle_dict["metadata"]["tier"] = ["BALL", "TWO_BALLS"][
+        puzzle_dict["metadata"]["tier"]
+    ]
 
     return puzzle_dict
 
@@ -97,11 +98,12 @@ def main() -> None:
 
                 bodies_data.append(
                     BodyData(
-                        position=bd["position"],
-                        bodyType=bd["bodyType"],
-                        angle=bd["angle"],
-                        color=bd["color"],
-                        shapeType=bd["shapeType"],
+                        position=bd.get("position"),
+                        body_type=bd.get("bodyType"),
+                        angle=bd.get("angle"),
+                        color=bd.get("color"),
+                        shape_type=bd.get("shapeType"),
+                        vertices=bd.get("vertices"),
                         diameter=bd.get("diameter"),
                         radius=bd.get("radius"),
                         shapes=shapes_data if shapes_data else None,
@@ -113,12 +115,9 @@ def main() -> None:
 
             puzzle_schema = PuzzleSchema(
                 puzzle_id=puzzle_dict["puzzle_id"],
-                scene_dimensions=puzzle_dict["scene_dimensions"],
                 bodies=bodies_data,
                 relationship=relationship_data,
                 metadata=metadata_data,
-                puzzle_type=puzzle_dict["puzzle_type"],
-                extra_info=puzzle_dict["extra_info"],
             )
 
             # Insert into database

@@ -8,7 +8,7 @@ from itakello_logging import ItakelloLogging
 
 from ..config import const
 from .proposal import Proposal
-from .shapes import BaseBody, Circle, Compound, Polygon
+from .shapes_old import BaseBody, Circle, Compound, Polygon
 from .space import CustomSpace
 from .types import Color, Position
 

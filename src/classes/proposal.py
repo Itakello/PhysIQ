@@ -5,7 +5,7 @@ from pathlib import Path
 import pygame
 
 # from PIL import Image
-from .shapes.circle import Circle
+from .shapes_old.circle import Circle
 
 
 @dataclass

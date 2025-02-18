@@ -6,10 +6,10 @@ import pymunk.pygame_util
 from pymunk.space_debug_draw_options import SpaceDebugColor
 from pymunk.vec2d import Vec2d
 
-from src.classes.shapes import BaseBody
+from src.classes.shapes_old import BaseBody
 
 from ..config import const
-from .shapes.circle import Circle
+from .shapes_old.circle import Circle
 
 
 class CustomDrawOptions(pymunk.pygame_util.DrawOptions):

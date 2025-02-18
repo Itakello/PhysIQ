@@ -22,6 +22,21 @@
             "args": [
                 "physiq_db"
             ]
+        },
+        {
+            "name": "2 - Simulation testing",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scripts.2_simulation_testing",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--start_template",
+                "1",
+                "--iterations",
+                "5",
+                "--visualize"
+            ]
         }
     ]
 }

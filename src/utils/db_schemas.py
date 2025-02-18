@@ -14,10 +14,11 @@ class ShapeData(BaseModel):
 
 class BodyData(BaseModel):
     position: list[float]
-    bodyType: int
-    angle: float
+    body_type: int
     color: int
-    shapeType: int
+    shape_type: int
+    angle: float | None = None
+    vertices: list[list[float]] | None = None
     diameter: float | None = None
     radius: float | None = None
     shapes: list[ShapeData] | None = None
@@ -32,17 +33,11 @@ class RelationshipData(BaseModel):
 
 class MetadataData(BaseModel):
     description: str
-    tier: int
+    tier: str
 
 
 class PuzzleSchema(BaseModel):
     puzzle_id: str
-    scene_dimensions: list[int]
     bodies: list[BodyData]
     relationship: RelationshipData
     metadata: MetadataData
-
-    # Additional metadata or fields you might want to store
-    # e.g., puzzle_type, creation_time, etc.
-    puzzle_type: str | None = None
-    extra_info: dict[str, Any] | None = None

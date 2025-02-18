@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import pygame
 
 from ..classes.proposal import Proposal
-from ..classes.shapes.circle import Circle
+from ..classes.shapes_old.circle import Circle
 from ..classes.task import Task
 from ..classes.types.color import Color
 from ..config import const
