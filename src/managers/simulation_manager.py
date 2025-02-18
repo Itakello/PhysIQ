@@ -3,9 +3,6 @@ import time
 from dataclasses import dataclass, field
 
 import pygame
-from itakello_logging import ItakelloLogging
-
-import wandb
 
 from ..classes.proposal import Proposal
 from ..classes.shapes.circle import Circle
@@ -14,8 +11,6 @@ from ..classes.types.color import Color
 from ..config import const
 from .base_manager import BaseManager
 from .surface_manager import SurfaceManager
-
-logger = ItakelloLogging().get_logger(__name__)
 
 
 @dataclass

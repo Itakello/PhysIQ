@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 
-from itakello_logging import ItakelloLogging
-
-logger = ItakelloLogging().get_logger(__name__)
+from loguru import logger
 
 
 @dataclass
