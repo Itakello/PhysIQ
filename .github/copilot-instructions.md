@@ -9,6 +9,7 @@
 6. `liteLLM`: for calling LLMs.
 7. `streamlit`: for building interactive data applications and dashboards with minimal code.
 8. `fastapi`: for creating high-performance, type-safe REST APIs with automatic OpenAPI documentation.
+9. `pydantic`: 
 
 ## Code-generation instructions
 1. Always write concise, maintainable Python code.
@@ -18,23 +19,19 @@
 5. Use classes and methods to encapsulate functionality.
 6. Include docstrings in modules, classes, and functions.
 7. Use context managers (`with` statements) to manage resources.
-8. Prefer `dataclasses` for straightforward data structures.
-9. Use base Python types (`dict`, `list`, `tuple`) for type hinting.
-10. Avoid `Optional` and `Union`; use `| None` and the `|` operator for unions.
-11. In classes, place public methods above private ones (`_method`).
-12. Write code with error handling (`try/except`) and input validation.
-13. For file system paths, use `pathlib`.
-14. Keep track of progress in long-running operations with `tqdm`.
-15. Organize dependencies in `requirements.txt` and manage them with virtual environments.
-16. Integrate code generation seamlessly into existing workflows and ensure clarity.
+8. Use base Python types (`dict`, `list`, `tuple`) for type hinting instead of `typing`.
+9. Avoid `Optional` and `Union`; use `| None` and the `|` operator for unions.
+10. In classes, place public methods above private ones (`_method`).
+11. Write code with error handling (`try/except`) and input validation.
+12. Organize dependencies in `requirements.txt` and manage them with virtual environments.
+13. Integrate code generation seamlessly into existing workflows and ensure clarity.
 
 ## Test-generation instructions
 1. Write unit tests using frameworks like `unittest` or `pytest`.
 2. Maintain high test coverage for critical components.
 3. Automate test execution with continuous integration.
 4. Use meaningful, isolated test methods for clarity.
-5. Incorporate `tqdm` for progress monitoring when needed.
-6. Verify error handling and edge cases in tests.
+5. Verify error handling and edge cases in tests.
 
 ## Code review instructions
 1. Ensure each function or method has a single responsibility.

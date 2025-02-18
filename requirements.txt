@@ -1,11 +1,9 @@
-pymunk
 pygame
-jsonschema
 tqdm
-itakello_logging
-wandb
 weave
 transformers
 torch
 Pillow
 loguru
+pymongo
+pydantic

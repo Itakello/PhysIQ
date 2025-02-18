@@ -13,7 +13,6 @@ There are two main tasks:
 1. **Dataset Conversion**:
    1. Reverse-engineered the Phyre dataset to simulate tasks similar to the original.
    2. Constructed 50 templates (25 with 1 ball and 25 with 2 balls) with each template having 100 iterations.
-
       Configurations include:
       1. The bodies (position, size, color, type, etc.)
       2. The 2 objects that should touch in the end.
@@ -40,15 +39,15 @@ There are two main tasks:
 #### **1️⃣ Refactor the Codebase**
 
 - [ ] 🔧 **Split code into main operation scripts**
-  - [ ] Create `0_dataset_conversion.py`
-  - [ ] Create `1_simulation_testing.py`
-  - [ ] Create `2_solutions_identification.py`
-  - [ ] Create `3_solutions_testing.py`
-  - [ ] Create `4_offline_evaluation.py`
-  - [ ] Create `5_online_evaluation.py`
-  - [ ] Create `6_create_human_interface.py`
-  - [ ] Create `7_plot_results.py`
-  - [ ] Create `8_dataset_expansion.py`
+  - [ ] Create `0_dataset_conversion.py` - Create the mongoDB database + extract the puzzles metadata from phyre and move them to the DB
+  - [ ] Create `1_simulation_testing.py` - Simulate the puzzles using pybox2d
+  - [ ] Create `2_solutions_identification.py` - Brute-force the proposals findings by verification (x for good proposals, x for bad proposals) and store them in MongoDB in a new table + the images
+  - [ ] Create `3_solutions_testing.py` - Simulate the puzzles with the good and bad proposals
+  - [ ] Create `4_offline_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
+  - [ ] Create `5_online_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
+  - [ ] Create `6_create_human_interface.py` - Create a webapp and a submission module for humans evaluation
+  - [ ] Create `7_plot_results.py` - Plot the results of the experiments
+  - [ ] Create `8_dataset_expansion.py` - Build in a programmatic way new templates and iterations. Take inspiration from phyre scripts.
 - [ ] 🏗️ **Refactor into modular functions**
   - [ ] Move reusable functions to utility modules
   - [ ] Ensure each script only calls relevant modules

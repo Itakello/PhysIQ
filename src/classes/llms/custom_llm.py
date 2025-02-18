@@ -12,7 +12,7 @@ class ModelBackend(Enum):
     ANTHROPIC = "anthropic"
 
 
-class CustomModel(ABC, weave.flow.model.Model, BaseModel):
+class CustomLLM(ABC, weave.flow.model.Model, BaseModel):
     id: str
     backend: ModelBackend
 

@@ -33,6 +33,13 @@
                 "-c",
                 "default"
             ]
+        },
+        {
+            "name": "Extract Samples",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
         }
     ]
 }

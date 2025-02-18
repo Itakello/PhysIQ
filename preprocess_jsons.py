@@ -4,8 +4,8 @@ from pathlib import Path
 
 def create_folders(base_path: Path) -> None:
     """Create 1_ball and 2_ball folders."""
-    (base_path / "categories" / "1_ball").mkdir(exist_ok=True)
-    (base_path / "categories" / "2_ball").mkdir(exist_ok=True)
+    (base_path / "categories" / "1_ball").mkdir(parents=True, exist_ok=True)
+    (base_path / "categories" / "2_ball").mkdir(parents=True, exist_ok=True)
 
 
 def get_json_files(data_path: Path) -> list[Path]:
@@ -25,7 +25,7 @@ def process_files(files, base_path: Path) -> None:
 
     for level, files in level_files.items():
         ball_folder = "1_ball" if level < 100 else "2_ball"
-        level_folder = base_path / ball_folder / f"{level:05d}"
+        level_folder = base_path / "categories" / ball_folder / f"{level:05d}"
         level_folder.mkdir(parents=True, exist_ok=True)
 
         for new_iteration, file in enumerate(files):
@@ -37,8 +37,10 @@ def process_files(files, base_path: Path) -> None:
 def main() -> None:
     base_path = Path("data")
     create_folders(base_path)
-    files = get_json_files(base_path)
+    files = get_json_files(Path("task_jsons"))
     process_files(files, base_path)
+
+    print(f"Processed {len(files)} files and moved them to {base_path}.")
 
 
 if __name__ == "__main__":
