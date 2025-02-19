@@ -39,7 +39,6 @@ class MongoDBManager(BaseManager):
         """
         doc = puzzle_data.dict()
         self._db["puzzles"].insert_one(doc)
-        logger.debug(f"Inserted puzzle with puzzle_id: {puzzle_data.puzzle_id}")
 
     def close_connection(self) -> None:
         """

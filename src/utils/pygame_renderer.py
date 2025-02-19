@@ -1,23 +1,33 @@
+# File: /PhysIQ/src/utils/pygame_renderer.py
+
 import pygame
 from Box2D import b2Shape, b2World
 from loguru import logger
 
-from .const import SCENE_DIMENSIONS
-
-SCALE = 1.0  # how many pixels in 1 meter (tweak as needed)
+from .const import RESOLUTION_SCALE_FACTOR, SCENE_DIMENSIONS
 
 
 class PygameRenderer:
     def __init__(self) -> None:
+        """Initialize a fixed-size, non-resizable PyGame window."""
         pygame.init()
-        self.screen = pygame.display.set_mode(SCENE_DIMENSIONS)
+        scaled_width = int(SCENE_DIMENSIONS[0] * RESOLUTION_SCALE_FACTOR)
+        scaled_height = int(SCENE_DIMENSIONS[1] * RESOLUTION_SCALE_FACTOR)
+        self.screen = pygame.display.set_mode(
+            (scaled_width, scaled_height),
+            flags=0,  # 0 = no special flags, i.e. non-resizable
+        )
         pygame.display.set_caption("PhysIQ Simulation")
         self.clock = pygame.time.Clock()
+        logger.debug("Initialized PygameRenderer with non-resizable window.")
 
-    def world_to_screen(self, world_point):
-        """Convert Box2D coordinates to pixel coordinates."""
-        x = int(world_point[0] * SCALE + SCENE_DIMENSIONS[0] / 2)
-        y = int(SCENE_DIMENSIONS[1] / 2 - world_point[1] * SCALE)
+    def world_to_screen(self, world_point) -> tuple[int, int]:
+        """
+        Convert Box2D coordinates to pixel coordinates.
+        We flip y so that y=0 is at the bottom.
+        """
+        x = int(world_point[0] * RESOLUTION_SCALE_FACTOR)
+        y = int((SCENE_DIMENSIONS[1] - world_point[1]) * RESOLUTION_SCALE_FACTOR)
         return (x, y)
 
     def render(self, world: b2World) -> bool:
@@ -32,34 +42,34 @@ class PygameRenderer:
         for body in world.bodies:
             for fixture in body.fixtures:
                 shape = fixture.shape
+                # Default black color
+                color = (0, 0, 0)
 
-                # Check if the fixture is marked "target"
-                if hasattr(fixture.userData, "get") and fixture.userData.get("target"):
-                    color = (255, 0, 0)  # red
-                else:
-                    color = (0, 0, 0)  # black
+                # If we stored color in fixture.userData, prefer that
+                if fixture.userData and "color" in fixture.userData:
+                    color = fixture.userData["color"]
 
-                # Distinguish between shape types
                 if shape.type == b2Shape.e_circle:
-                    # circle
+                    # Circle
                     circle_shape = fixture.shape
-                    # Box2D circle has a 'radius' and a 'p' (the circle center relative to the body's origin)
                     circle_center = body.transform * circle_shape.pos
                     center = self.world_to_screen(circle_center)
-                    radius = int(circle_shape.radius * SCALE)
-                    pygame.draw.circle(self.screen, color, center, radius, 2)
+                    radius = int(circle_shape.radius * RESOLUTION_SCALE_FACTOR)
+
+                    # Fill the circle with the fixture color
+                    pygame.draw.circle(self.screen, color, center, radius, width=0)
 
                 elif shape.type == b2Shape.e_polygon:
-                    # polygon
+                    # Polygon or compound polygon fixture
                     polygon_shape = fixture.shape
                     vertices = [body.transform * v for v in polygon_shape.vertices]
-                    vertices = [self.world_to_screen(v) for v in vertices]
-                    pygame.draw.polygon(self.screen, color, vertices, 2)
+                    screen_vertices = [self.world_to_screen(v) for v in vertices]
+
+                    # Fill the polygon
+                    pygame.draw.polygon(self.screen, color, screen_vertices, width=0)
 
                 else:
-                    # For edge shapes, chain shapes, etc. You can handle them similarly:
-                    # if shape.type == b2Shape.e_edge, or b2Shape.e_chain, ...
-                    # or just skip them for now.
+                    # Could add e_edge or e_chain, etc.
                     pass
 
         pygame.display.flip()
@@ -68,3 +78,4 @@ class PygameRenderer:
 
     def quit(self):
         pygame.quit()
+        logger.debug("Quit PygameRenderer.")

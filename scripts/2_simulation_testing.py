@@ -56,7 +56,7 @@ class CollisionListener(b2ContactListener):
 
 def run_box2d_simulation(puzzle: dict, visualize: bool = False) -> bool:
     gravity = (0, -DEFAULT_Y_GRAVITY)
-    world = b2World(gravity=gravity, doSleep=True)
+    world = b2World(gravity=gravity, doSleep=False)
 
     collision_listener = CollisionListener()
     world.contactListener = collision_listener
@@ -76,12 +76,12 @@ def run_box2d_simulation(puzzle: dict, visualize: bool = False) -> bool:
         renderer = PygameRenderer()
 
     # Simulation loop
-    for step_i in range(MAX_SIMULATION_STEPS):
-        world.Step(TIME_SCALE / FPS, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
+    for _ in range(MAX_SIMULATION_STEPS):
+        world.Step((1.0 / FPS) * TIME_SCALE, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
 
         if visualize:
             # Render the entire Box2D world
-            if not renderer.render(world):
+            if renderer and not renderer.render(world):
                 # User closed the pygame window
                 break
 

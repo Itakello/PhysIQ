@@ -49,7 +49,7 @@ def convert_task_to_json(task) -> Union[dict, None]:
     bodies = []
     for body in task.scene.bodies:
         body_info = {
-            "position": [body.position.x, scene_height - body.position.y],
+            "position": [body.position.x, body.position.y],
             "bodyType": body.bodyType - 1,  # Adjusting index from phyre
             "angle": body.angle,
             "color": body.color,

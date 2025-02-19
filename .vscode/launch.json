@@ -32,9 +32,9 @@
             "cwd": "${workspaceFolder}",
             "args": [
                 "--start_template",
-                "1",
+                "0",
                 "--iterations",
-                "5",
+                "2",
                 "--visualize"
             ]
         }
