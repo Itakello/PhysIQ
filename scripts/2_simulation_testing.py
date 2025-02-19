@@ -6,6 +6,7 @@ from loguru import logger
 from src.classes.shapes import create_pybox2d_body
 from src.managers.db_manager import MongoDBManager
 from src.utils.const import (
+    COLLISION_DURATION_THRESHOLD,
     DEFAULT_Y_GRAVITY,
     FPS,
     MAX_SIMULATION_STEPS,
@@ -19,44 +20,62 @@ class CollisionListener(b2ContactListener):
     """
     Custom collision listener that records collisions between two specific body indices.
     We identify the colliding bodies by matching fixture.userData or body.userData.
+    Tracks collision duration to ensure it meets the threshold requirement.
     """
 
     def __init__(self):
         super().__init__()
         self.goal_reached = False
+        self.collision_start_frame = None
+        self.current_frame = 0
+        self.is_colliding = False
 
     def BeginContact(self, contact: b2Contact) -> None:
-        """
-        If the contact is between the two bodies of interest, mark the goal as reached.
-        """
+        """Start tracking collision duration when target bodies collide."""
         fA = contact.fixtureA
         fB = contact.fixtureB
 
         if fA.userData is None or fB.userData is None:
             return
 
-        # Suppose we store the puzzle’s “body_id” or some unique index
         bodyA_id = fA.userData.get("body_id")
         bodyB_id = fB.userData.get("body_id")
 
-        # If these are the 2 bodies meant to collide
         if bodyA_id is not None and bodyB_id is not None:
-            # If your puzzle design says "collide bodyId1 with bodyId2 to reach the goal"
-            # then do something like:
-            # e.g. if puzzle wants bodies #X, #Y to collide, match them here
-            # For simplicity, let's check a quick condition:
-            # (You could refine if you store or pass the puzzle's target IDs.)
-            # We'll store them in the fixture userData (like "target": True), or do checks:
             if fA.userData.get("target") and fB.userData.get("target"):
-                self.goal_reached = True
+                self.is_colliding = True
+                if self.collision_start_frame is None:
+                    self.collision_start_frame = self.current_frame
 
     def EndContact(self, contact: b2Contact) -> None:
-        pass
+        """Reset collision tracking when target bodies separate."""
+        fA = contact.fixtureA
+        fB = contact.fixtureB
+
+        if fA.userData is None or fB.userData is None:
+            return
+
+        bodyA_id = fA.userData.get("body_id")
+        bodyB_id = fB.userData.get("body_id")
+
+        if bodyA_id is not None and bodyB_id is not None:
+            if fA.userData.get("target") and fB.userData.get("target"):
+                self.is_colliding = False
+                self.collision_start_frame = None
+
+    def update(self) -> None:
+        """Update frame counter and check if collision duration meets threshold."""
+        self.current_frame += 1
+
+        if self.is_colliding and self.collision_start_frame is not None:
+            collision_duration = self.current_frame - self.collision_start_frame
+            if collision_duration >= COLLISION_DURATION_THRESHOLD:
+                self.goal_reached = True
 
 
 def run_box2d_simulation(puzzle: dict, visualize: bool = False) -> bool:
     gravity = (0, -DEFAULT_Y_GRAVITY)
-    world = b2World(gravity=gravity, doSleep=False)
+    world = b2World(gravity=gravity, doSleep=True)
 
     collision_listener = CollisionListener()
     world.contactListener = collision_listener
@@ -77,7 +96,8 @@ def run_box2d_simulation(puzzle: dict, visualize: bool = False) -> bool:
 
     # Simulation loop
     for _ in range(MAX_SIMULATION_STEPS):
-        world.Step((1.0 / FPS) * TIME_SCALE, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
+        world.Step(TIME_SCALE / FPS, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
+        collision_listener.update()  # Update frame counter and check collision duration
 
         if visualize:
             # Render the entire Box2D world

@@ -4,22 +4,28 @@ import pygame
 from Box2D import b2Shape, b2World
 from loguru import logger
 
-from .const import RESOLUTION_SCALE_FACTOR, SCENE_DIMENSIONS
+from .const import RESOLUTION_SCALE_FACTOR, SCENE_DIMENSIONS, SCREEN_SCALE_FACTOR
 
 
 class PygameRenderer:
     def __init__(self) -> None:
         """Initialize a fixed-size, non-resizable PyGame window."""
         pygame.init()
-        scaled_width = int(SCENE_DIMENSIONS[0] * RESOLUTION_SCALE_FACTOR)
-        scaled_height = int(SCENE_DIMENSIONS[1] * RESOLUTION_SCALE_FACTOR)
         self.screen = pygame.display.set_mode(
-            (scaled_width, scaled_height),
-            flags=0,  # 0 = no special flags, i.e. non-resizable
+            (
+                SCENE_DIMENSIONS[0] * SCREEN_SCALE_FACTOR,
+                SCENE_DIMENSIONS[1] * SCREEN_SCALE_FACTOR,
+            )
+        )
+        self.surface = pygame.Surface(
+            (
+                SCENE_DIMENSIONS[0] * RESOLUTION_SCALE_FACTOR,
+                SCENE_DIMENSIONS[1] * RESOLUTION_SCALE_FACTOR,
+            )
         )
         pygame.display.set_caption("PhysIQ Simulation")
         self.clock = pygame.time.Clock()
-        logger.debug("Initialized PygameRenderer with non-resizable window.")
+        logger.debug("Initialized PygameRenderer.")
 
     def world_to_screen(self, world_point) -> tuple[int, int]:
         """
@@ -36,7 +42,7 @@ class PygameRenderer:
             if event.type == pygame.QUIT:
                 return False
 
-        self.screen.fill((255, 255, 255))  # White background
+        self.surface.fill((255, 255, 255))  # White background
 
         # Draw each body's fixtures
         for body in world.bodies:
@@ -57,7 +63,7 @@ class PygameRenderer:
                     radius = int(circle_shape.radius * RESOLUTION_SCALE_FACTOR)
 
                     # Fill the circle with the fixture color
-                    pygame.draw.circle(self.screen, color, center, radius, width=0)
+                    pygame.draw.circle(self.surface, color, center, radius, width=0)
 
                 elif shape.type == b2Shape.e_polygon:
                     # Polygon or compound polygon fixture
@@ -66,12 +72,21 @@ class PygameRenderer:
                     screen_vertices = [self.world_to_screen(v) for v in vertices]
 
                     # Fill the polygon
-                    pygame.draw.polygon(self.screen, color, screen_vertices, width=0)
+                    pygame.draw.polygon(self.surface, color, screen_vertices, width=0)
 
                 else:
                     # Could add e_edge or e_chain, etc.
                     pass
 
+        # Scale the surface to the screen size and display it
+        scaled_surface = pygame.transform.smoothscale(
+            self.surface,
+            (
+                SCENE_DIMENSIONS[0] * SCREEN_SCALE_FACTOR,
+                SCENE_DIMENSIONS[1] * SCREEN_SCALE_FACTOR,
+            ),
+        )
+        self.screen.blit(scaled_surface, (0, 0))
         pygame.display.flip()
         self.clock.tick(60)
         return True
