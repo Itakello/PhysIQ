@@ -8,4 +8,5 @@ wandb/
 data/
 data_old/
 task_jsons/
+images/
 .mypy_cache/

@@ -1,61 +1,12 @@
 import argparse
 
-from Box2D import  b2World
 from loguru import logger
-from src.utils.pygame_renderer import PygameRenderer
-from src.classes.shapes import create_pybox2d_body
+
 from src.managers.db_manager import MongoDBManager
-from src.utils.const import (
-    DEFAULT_Y_GRAVITY,
-    FPS,
-    MAX_SIMULATION_STEPS,
-    POSITION_ITERATIONS,
-    TIME_SCALE,
-    VELOCITY_ITERATIONS,
-)
-from src.utils.collision_listener import CollisionListener
+from src.utils.box2d_runner import run_simulation
 
 
-def run_box2d_simulation(puzzle: dict, visualize: bool = False) -> bool:
-    gravity = (0, -DEFAULT_Y_GRAVITY)
-    world = b2World(gravity=gravity, doSleep=True)
-
-    collision_listener = CollisionListener()
-    world.contactListener = collision_listener
-
-    # Create bodies ONCE
-    for idx, bd in enumerate(puzzle["bodies"]):
-        is_target = (idx == puzzle["relationship"]["bodyId1"]) or (
-            idx == puzzle["relationship"]["bodyId2"]
-        )
-        create_pybox2d_body(world, bd, body_index=idx, is_target=is_target)
-
-    # Only do this if we want visualization
-    renderer = None
-    if visualize:
-        renderer = PygameRenderer()
-
-    # Simulation loop
-    for _ in range(MAX_SIMULATION_STEPS):
-        world.Step(TIME_SCALE / FPS, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
-        collision_listener.update()  # Update frame counter and check collision duration
-
-        if visualize:
-            # Render the entire Box2D world
-            if renderer and not renderer.render(world):
-                # User closed the pygame window
-                break
-
-        if collision_listener.goal_reached:
-            break
-
-    if renderer:
-        renderer.quit()
-
-    return collision_listener.goal_reached
-
-
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run PyBox2D simulations on puzzle templates from MongoDB."
     )
@@ -82,8 +33,10 @@ def main() -> None:
         action="store_true",
         help="Enable Pygame visualization of the simulation",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
 
+
+def main(args: argparse.Namespace) -> None:
     # Connect to DB
     db_manager = MongoDBManager(db_name=args.db_name)
 
@@ -103,7 +56,7 @@ def main() -> None:
     # Group by template_id
     grouped = {}
     for p in all_puzzles:
-        template_part, iteration_part = parse_template_id(p["puzzle_id"])
+        template_part, _ = parse_template_id(p["puzzle_id"])
         if template_part not in grouped:
             grouped[template_part] = []
         grouped[template_part].append(p)
@@ -114,28 +67,23 @@ def main() -> None:
         if template_id < args.start_template:
             continue
 
-        # We'll take up to "iterations" tasks from this template
-        tasks = grouped[template_id][: args.iterations]
-        if not tasks:
-            logger.info(f"No tasks found for template {template_id}")
+        # We'll take up to "iterations" iterations from this template
+        iterations = grouped[template_id][: args.iterations]
+        if not iterations:
+            logger.warning(f"No iterations found for template {template_id}")
             continue
 
-        logger.info(f"Simulating template {template_id} with {len(tasks)} tasks")
+        logger.info(
+            f"Simulating template {template_id} with {len(iterations)} iterations"
+        )
 
-        for puzzle_doc in tasks:
-            pid = puzzle_doc["puzzle_id"]
-            puzzle_result = run_box2d_simulation(puzzle_doc, visualize=args.visualize)
-            logger.info(f"Puzzle {pid} => Collided? {puzzle_result}")
-
-            # Update DB with result
-            puzzles_coll.update_one(
-                {"_id": puzzle_doc["_id"]},
-                {"$set": {"box2d_sim_result": puzzle_result}},
-            )
+        for puzzle_doc in iterations:
+            run_simulation(puzzle_doc, visualize=args.visualize)
 
     db_manager.close_connection()
     logger.info("Done running PyBox2D simulations!")
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args)

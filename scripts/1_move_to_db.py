@@ -64,9 +64,7 @@ def load_puzzle_from_json(json_path: Path) -> dict:
     return puzzle_dict
 
 
-def main() -> None:
-    # Parse arguments
-    args = parse_args()
+def main(args: argparse.Namespace) -> None:
     input_dir = Path(args.input_dir)
 
     if not input_dir.exists():
@@ -132,4 +130,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(args)

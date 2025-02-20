@@ -41,3 +41,12 @@ class PuzzleSchema(BaseModel):
     bodies: list[BodyData]
     relationship: RelationshipData
     metadata: MetadataData
+
+
+class ProposalSchema(BaseModel):
+    puzzle_id: str
+    is_good: bool
+    attempt: int
+    radius: float
+    position: list[float]
+    image_path: str

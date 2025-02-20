@@ -4,11 +4,13 @@ from Box2D import (
     b2_dynamicBody,
     b2_kinematicBody,
     b2_staticBody,
+    b2Body,
     b2BodyDef,
     b2CircleShape,
     b2FixtureDef,
     b2PolygonShape,
     b2Vec2,
+    b2World,
 )
 from loguru import logger
 
@@ -67,12 +69,36 @@ def _create_compound_fixtures(shapes: list[Any]) -> list[b2FixtureDef]:
     return fix_defs
 
 
+def _is_overlapping(body: b2Body, world: b2World) -> bool:
+    """
+    Check if the given body overlaps with any existing bodies in the world.
+    """
+    for other_body in world.bodies:
+        if other_body != body:  # Don't check against itself
+            for fixture in body.fixtures:
+                for other_fixture in other_body.fixtures:
+                    if fixture.shape.TestOverlap(
+                        other_fixture.shape, body.transform, other_body.transform, 0
+                    ):  # 0 tolerance
+                        world.DestroyBody(body)
+                        return True
+    return False
+
+
 def create_pybox2d_body(
-    world, body_data: dict, body_index: int, is_target: bool = False
-):
+    world: b2World,
+    body_data: dict,
+    body_index: int,
+    is_target: bool = False,
+    check_overlapping: bool = False,
+) -> b2FixtureDef | None:
     """
     Create a single Box2D body + fixture(s) in the given Box2D world.
     Attach color info in fixture.userData so that PygameRenderer can fill shapes properly.
+
+    Returns:
+        tuple: (success, body) where success is True if no overlaps were found,
+               and body is the created body (or None if creation failed)
     """
     body_def = b2BodyDef()
     body_def.type = _get_body_type(body_data["body_type"])
@@ -118,5 +144,10 @@ def create_pybox2d_body(
             body.CreateFixture(fd)
     else:
         logger.warning(f"Unknown shape_type {st} encountered; skipping creation.")
+        return None
+
+    # Check for overlaps with existing bodies
+    if check_overlapping and _is_overlapping(body, world):
+        return None
 
     return body

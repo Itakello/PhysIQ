@@ -35,6 +35,27 @@
                 "13",
                 "--iterations",
                 "2",
+                "--db_name",
+                "physiq_db",
+                "--visualize"
+            ]
+        },
+        {
+            "name": "3 - Proposals identification",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scripts.3_proposals_identification",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--start_template",
+                "13",
+                "--iterations",
+                "2",
+                "--num_proposals",
+                "3",
+                "--db_name",
+                "physiq_db",
                 "--visualize"
             ]
         }
