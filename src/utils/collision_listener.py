@@ -1,5 +1,7 @@
 from Box2D import b2Contact, b2ContactListener
+
 from src.utils.const import COLLISION_DURATION_THRESHOLD
+
 
 class CollisionListener(b2ContactListener):
     """
@@ -8,7 +10,7 @@ class CollisionListener(b2ContactListener):
     Tracks collision duration to ensure it meets the threshold requirement.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.goal_reached = False
         self.collision_start_frame = None

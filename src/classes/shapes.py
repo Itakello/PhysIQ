@@ -9,6 +9,7 @@ from Box2D import (
     b2CircleShape,
     b2FixtureDef,
     b2PolygonShape,
+    b2TestOverlap,
     b2Vec2,
     b2World,
 )
@@ -77,9 +78,14 @@ def _is_overlapping(body: b2Body, world: b2World) -> bool:
         if other_body != body:  # Don't check against itself
             for fixture in body.fixtures:
                 for other_fixture in other_body.fixtures:
-                    if fixture.shape.TestOverlap(
-                        other_fixture.shape, body.transform, other_body.transform, 0
-                    ):  # 0 tolerance
+                    if b2TestOverlap(
+                        fixture.shape,
+                        0,  # shape A child index
+                        other_fixture.shape,
+                        0,  # shape B child index
+                        body.transform,
+                        other_body.transform,
+                    ):
                         world.DestroyBody(body)
                         return True
     return False
@@ -91,7 +97,7 @@ def create_pybox2d_body(
     body_index: int,
     is_target: bool = False,
     check_overlapping: bool = False,
-) -> b2FixtureDef | None:
+) -> b2Body | None:
     """
     Create a single Box2D body + fixture(s) in the given Box2D world.
     Attach color info in fixture.userData so that PygameRenderer can fill shapes properly.

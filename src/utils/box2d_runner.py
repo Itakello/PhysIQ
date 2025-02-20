@@ -1,6 +1,6 @@
 import numpy as np
 import pygame
-from Box2D import b2World
+from Box2D import b2_staticBody, b2World
 from PIL import Image
 
 from src.utils.const import (
@@ -8,16 +8,32 @@ from src.utils.const import (
     FPS,
     MAX_SIMULATION_STEPS,
     POSITION_ITERATIONS,
+    STOP_VELOCITY_THRESHOLD,
     TIME_SCALE,
     VELOCITY_ITERATIONS,
+    FRAMES_FOR_STATIC,
 )
 from src.utils.pygame_renderer import PygameRenderer
+
+from .collision_listener import CollisionListener
+
+
+def _is_world_static(world: b2World) -> bool:
+    """Check if all bodies in the world are effectively static."""
+    for body in world.bodies:
+        if body.type != b2_staticBody:  # Only check dynamic bodies
+            if (
+                abs(body.linearVelocity.x) > STOP_VELOCITY_THRESHOLD
+                or abs(body.linearVelocity.y) > STOP_VELOCITY_THRESHOLD
+                or abs(body.angularVelocity) > STOP_VELOCITY_THRESHOLD
+            ):
+                return False
+    return True
 
 
 def run_simulation(
     puzzle: dict,
     visualize: bool = False,
-    collision_listener=None,
     get_screenshot: bool = False,
 ) -> tuple[bool, Image.Image | None]:
     """
@@ -38,13 +54,18 @@ def run_simulation(
 
     for idx, bd in enumerate(bodies_data):
         is_target = (idx == target_ids[0]) or (idx == target_ids[1])
-        new_body = create_pybox2d_body(world, bd, body_index=idx, is_target=is_target)
-        if bd.get("proposal", False) and new_body is None:
+        check_overlapping = bd.get("proposal", False)
+        new_body = create_pybox2d_body(
+            world,
+            bd,
+            body_index=idx,
+            is_target=is_target,
+            check_overlapping=check_overlapping,
+        )
+        if check_overlapping and new_body is None:
             raise ValueError("Overlapping bodies detected in the puzzle.")
 
-    # 3) Optionally attach collision listener
-    if collision_listener:
-        world.contactListener = collision_listener
+    world.contactListener = CollisionListener()
 
     # 4) Visualization
     renderer = None
@@ -60,15 +81,27 @@ def run_simulation(
 
     # 5) Run main simulation loop
     is_collision_goal = False
+    static_counter = 0  # Count frames where world is static
     for _step in range(MAX_SIMULATION_STEPS):
         world.Step(TIME_SCALE / FPS, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
         if visualize and renderer:
             if not renderer.render(world):
-                # User closed the PyGame window
                 break
-        if collision_listener and collision_listener.goal_reached:
+
+        world.contactListener.update()
+        if world.contactListener.goal_reached:
             is_collision_goal = True
             break
+
+        # Check if world is static
+        if _is_world_static(world):
+            static_counter += 1
+            if (
+                static_counter > FRAMES_FOR_STATIC
+            ):  # Wait a few frames to confirm static state
+                break
+        else:
+            static_counter = 0
 
     # Quit PyGame if used
     if renderer:

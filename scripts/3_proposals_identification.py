@@ -32,7 +32,6 @@ from tqdm import tqdm
 
 from src.managers.db_manager import MongoDBManager
 from src.utils.box2d_runner import run_simulation
-from src.utils.collision_listener import CollisionListener
 from src.utils.const import MAX_ATTEMPTS, MAX_RADIUS, MIN_RADIUS, SCENE_DIMENSIONS
 from src.utils.db_schemas import ProposalSchema
 
@@ -94,10 +93,9 @@ def find_proposals_for_puzzle(
             is_good, _ = run_simulation(
                 puzzle=tmp_puzzle_doc,
                 visualize=False,
-                collision_listener=CollisionListener(),
             )
         except ValueError as e:
-            logger.warning(f"Skipping proposal due to overlapping bodies: {e}")
+            logger.warning(f"[OVERLAP] Skipping proposal [{attempts}]")
             continue
 
         # 3) Insert into DB
@@ -107,7 +105,6 @@ def find_proposals_for_puzzle(
             _, screenshot = run_simulation(
                 puzzle=tmp_puzzle_doc,
                 visualize=visualize,
-                collision_listener=CollisionListener(),
                 get_screenshot=True,
             )
             screenshot_path = images_dir / f"{puzzle_id}_good_{good_found}.png"
@@ -128,7 +125,6 @@ def find_proposals_for_puzzle(
             _, screenshot = run_simulation(
                 puzzle=tmp_puzzle_doc,
                 visualize=visualize,
-                collision_listener=CollisionListener(),
                 get_screenshot=True,
             )
             screenshot_path = images_dir / f"{puzzle_id}_bad_{bad_found}.png"

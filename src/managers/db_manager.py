@@ -37,7 +37,7 @@ class MongoDBManager(BaseManager):
         """
         Insert a puzzle document into the puzzles collection.
         """
-        doc = puzzle_data.dict()
+        doc = puzzle_data.model_dump()
         self._db["puzzles"].insert_one(doc)
 
     def close_connection(self) -> None:
