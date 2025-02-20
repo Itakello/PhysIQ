@@ -41,14 +41,13 @@ There are two main tasks:
 - [ ] 🔧 **Split code into main operation scripts**
   - [x] Create `0_extract_jsons.py` - Extract the puzzles metadata from phyre (uses python 3.8 beacause of phyre old repository)
   - [x] Create `1_move_to_db.py` - Create the mongoDB database + move the puzzles to the DB
-  - [ ] Create `2_simulation_testing.py` - Simulate the puzzles using pybox2d
+  - [x] Create `2_simulation_testing.py` - Simulate the puzzles using pybox2d
   - [ ] Create `3_solutions_identification.py` - Brute-force the proposals findings by verification (x for good proposals, x for bad proposals) and store them in MongoDB in a new table + the images
-  - [ ] Create `4_solutions_testing.py` - Simulate the puzzles with the good and bad proposals
-  - [ ] Create `5_offline_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
-  - [ ] Create `6_online_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
-  - [ ] Create `7_create_human_interface.py` - Create a webapp and a submission module for humans evaluation
-  - [ ] Create `8_plot_results.py` - Plot the results of the experiments
-  - [ ] Create `9_dataset_expansion.py` - Build in a programmatic way new templates and iterations. Take inspiration from phyre scripts.
+  - [ ] Create `4_offline_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
+  - [ ] Create `5_online_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
+  - [ ] Create `6_create_human_interface.py` - Create a webapp and a submission module for humans evaluation
+  - [ ] Create `7_plot_results.py` - Plot the results of the experiments
+  - [ ] Create `8_dataset_expansion.py` - Build in a programmatic way new templates and iterations. Take inspiration from phyre scripts.
 - [ ] 🏗️ **Refactor into modular functions**
   - [ ] Move reusable functions to utility modules
   - [ ] Ensure each script only calls relevant modules
@@ -60,26 +59,23 @@ There are two main tasks:
 #### **2️⃣ Dataset Storage**
 
 - [ ] 📂 **Decide how to store configuration parameters & images**
-  - [ ] Reorganize the dataset structure
-  - [ ] Choose between JSON, CSV, or other formats for parameters
+  - [x] Reorganize the dataset structure
+  - [x] Choose between JSON, CSV, or other formats for parameters
   - [ ] Define a naming convention for image storage
   - [ ] Integrate with Hugging Face Datasets
   - [ ] Integrate with the `datasets` library
-- [ ] 📦 **Integrate with `dataclasses` library**
-  - [ ] Define how to structure the dataset using `dataclasses`
-  - [ ] Implement a function to retrieve configuration parameters easily
 
 #### **3️⃣ Engine Conversion (PyBox2D Migration)**
 
-- [ ] 🔬 **Analyze PhyRE repo**
-  - [ ] Identify physical hyperparameters used and their values
-  - [ ] Understand how PhyRE stores physical parameters
-  - [ ] Study how solutions are generated
-  - [ ] Analyze how PhyRE validates solutions efficiently
-- [ ] 🛠️ **Understand PyBox2D mechanics**
-  - [ ] Simulate existing templates in PyBox2D
-  - [ ] Implement brute-force solution finding
-  - [ ] Implement solution verification and optimize for speed
+- [x] 🔬 **Analyze PhyRE repo**
+  - [x] Identify physical hyperparameters used and their values
+  - [x] Understand how PhyRE stores physical parameters
+  - [x] Study how solutions are generated
+  - [x] Analyze how PhyRE validates solutions efficiently
+- [x] 🛠️ **Understand PyBox2D mechanics**
+  - [x] Simulate existing templates in PyBox2D
+  - [x] Implement brute-force solution finding
+  - [x] Implement solution verification and optimize for speed
 
 #### **4️⃣ Offline Evaluation**
 
