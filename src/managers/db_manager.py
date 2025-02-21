@@ -12,6 +12,12 @@ from ..utils.db_schemas import PuzzleSchema
 from .base_manager import BaseManager
 
 
+def parse_template_id(puzzle_id: str) -> tuple[int, int]:
+    # "00012:34" -> (12, 34)
+    main_part, iteration_part = puzzle_id.split(":")
+    return int(main_part), int(iteration_part)
+
+
 @dataclass
 class MongoDBManager(BaseManager):
     """
@@ -30,7 +36,7 @@ class MongoDBManager(BaseManager):
         self._db = self._client[self.db_name]
 
     @property
-    def db(self):
+    def db(self) -> Any:
         return self._db
 
     def insert_puzzle(self, puzzle_data: PuzzleSchema) -> None:
@@ -39,6 +45,29 @@ class MongoDBManager(BaseManager):
         """
         doc = puzzle_data.model_dump()
         self._db["puzzles"].insert_one(doc)
+
+    def get_grouped_templates(
+        self, start_template: int, iterations: int
+    ) -> dict[int, list[dict]]:
+        """
+        Return all puzzles from the DB, grouped by their template (integer part of id).
+        Also sort each group by iteration, then slice up to `iterations`.
+        """
+        all_puzzles = list(self._db["puzzles"].find({}))
+        # Sort by puzzle_id => parse_template_id
+        all_puzzles.sort(key=lambda p: parse_template_id(p["id"]))
+
+        grouped = {}
+        for p in all_puzzles:
+            t_id, i_id = parse_template_id(p["id"])
+            if t_id < start_template:
+                continue
+            grouped.setdefault(t_id, []).append(p)
+
+        # Keep only up to 'iterations' from each group
+        for k in grouped:
+            grouped[k] = grouped[k][:iterations]
+        return grouped
 
     def close_connection(self) -> None:
         """

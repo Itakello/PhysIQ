@@ -1,23 +1,34 @@
+from dataclasses import dataclass
+
 import pygame
 from Box2D import b2Shape, b2World
 from loguru import logger
 
-from .const import SCENE_DIMENSIONS
+from ..managers.base_manager import BaseManager
+from .const import RESOLUTION_SCALE_FACTOR, SCENE_DIMENSIONS, SCREEN_SCALE_FACTOR
 
-SCALE = 1.0  # how many pixels in 1 meter (tweak as needed)
 
+@dataclass
+class PygameManager(BaseManager):
+    screen_scale_factor: int = SCREEN_SCALE_FACTOR
+    resolution_scale_factor: int = RESOLUTION_SCALE_FACTOR
+    scene_dimensions: tuple[int, int] = SCENE_DIMENSIONS
 
-class PygameRenderer:
-    def __init__(self) -> None:
+    def __post_init__(self) -> None:
         pygame.init()
-        self.screen = pygame.display.set_mode(SCENE_DIMENSIONS)
+        self.screen = pygame.display.set_mode(
+            tuple(x * self.screen_scale_factor for x in self.scene_dimensions)
+        )
+        self.surface = pygame.Surface(
+            tuple(x * self.resolution_scale_factor for x in self.scene_dimensions)
+        )
         pygame.display.set_caption("PhysIQ Simulation")
         self.clock = pygame.time.Clock()
 
-    def world_to_screen(self, world_point):
+    def _to_pygame(self, world_point: tuple[float, float]) -> tuple[float, float]:
         """Convert Box2D coordinates to pixel coordinates."""
-        x = int(world_point[0] * SCALE + SCENE_DIMENSIONS[0] / 2)
-        y = int(SCENE_DIMENSIONS[1] / 2 - world_point[1] * SCALE)
+        x = world_point[0] * SCALE + SCENE_DIMENSIONS[0] / 2
+        y = SCENE_DIMENSIONS[1] / 2 - world_point[1] * SCALE
         return (x, y)
 
     def render(self, world: b2World) -> bool:
@@ -45,7 +56,7 @@ class PygameRenderer:
                     circle_shape = fixture.shape
                     # Box2D circle has a 'radius' and a 'p' (the circle center relative to the body's origin)
                     circle_center = body.transform * circle_shape.pos
-                    center = self.world_to_screen(circle_center)
+                    center = self._to_pygame(circle_center)
                     radius = int(circle_shape.radius * SCALE)
                     pygame.draw.circle(self.screen, color, center, radius, 2)
 
@@ -53,7 +64,7 @@ class PygameRenderer:
                     # polygon
                     polygon_shape = fixture.shape
                     vertices = [body.transform * v for v in polygon_shape.vertices]
-                    vertices = [self.world_to_screen(v) for v in vertices]
+                    vertices = [self._to_pygame(v) for v in vertices]
                     pygame.draw.polygon(self.screen, color, vertices, 2)
 
                 else:
