@@ -10,3 +10,4 @@ data_old/
 task_jsons/
 images/
 .mypy_cache/
+node_modules/

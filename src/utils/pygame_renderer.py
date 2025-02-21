@@ -1,39 +1,23 @@
-# File: /PhysIQ/src/utils/pygame_renderer.py
-
 import pygame
 from Box2D import b2Shape, b2World
 from loguru import logger
 
-from .const import RESOLUTION_SCALE_FACTOR, SCENE_DIMENSIONS, SCREEN_SCALE_FACTOR
+from .const import SCENE_DIMENSIONS
+
+SCALE = 1.0  # how many pixels in 1 meter (tweak as needed)
 
 
 class PygameRenderer:
     def __init__(self) -> None:
-        """Initialize a fixed-size, non-resizable PyGame window."""
         pygame.init()
-        self.screen = pygame.display.set_mode(
-            (
-                SCENE_DIMENSIONS[0] * SCREEN_SCALE_FACTOR,
-                SCENE_DIMENSIONS[1] * SCREEN_SCALE_FACTOR,
-            )
-        )
-        self.surface = pygame.Surface(
-            (
-                SCENE_DIMENSIONS[0] * RESOLUTION_SCALE_FACTOR,
-                SCENE_DIMENSIONS[1] * RESOLUTION_SCALE_FACTOR,
-            )
-        )
+        self.screen = pygame.display.set_mode(SCENE_DIMENSIONS)
         pygame.display.set_caption("PhysIQ Simulation")
         self.clock = pygame.time.Clock()
-        logger.debug("Initialized PygameRenderer.")
 
-    def world_to_screen(self, world_point) -> tuple[int, int]:
-        """
-        Convert Box2D coordinates to pixel coordinates.
-        We flip y so that y=0 is at the bottom.
-        """
-        x = int(world_point[0] * RESOLUTION_SCALE_FACTOR)
-        y = int((SCENE_DIMENSIONS[1] - world_point[1]) * RESOLUTION_SCALE_FACTOR)
+    def world_to_screen(self, world_point):
+        """Convert Box2D coordinates to pixel coordinates."""
+        x = int(world_point[0] * SCALE + SCENE_DIMENSIONS[0] / 2)
+        y = int(SCENE_DIMENSIONS[1] / 2 - world_point[1] * SCALE)
         return (x, y)
 
     def render(self, world: b2World) -> bool:
@@ -42,55 +26,45 @@ class PygameRenderer:
             if event.type == pygame.QUIT:
                 return False
 
-        self.surface.fill((255, 255, 255))  # White background
+        self.screen.fill((255, 255, 255))  # White background
 
         # Draw each body's fixtures
         for body in world.bodies:
             for fixture in body.fixtures:
                 shape = fixture.shape
-                # Default black color
-                color = (0, 0, 0)
 
-                # If we stored color in fixture.userData, prefer that
-                if fixture.userData and "color" in fixture.userData:
-                    color = fixture.userData["color"]
+                # Check if the fixture is marked "target"
+                if hasattr(fixture.userData, "get") and fixture.userData.get("target"):
+                    color = (255, 0, 0)  # red
+                else:
+                    color = (0, 0, 0)  # black
 
+                # Distinguish between shape types
                 if shape.type == b2Shape.e_circle:
-                    # Circle
+                    # circle
                     circle_shape = fixture.shape
+                    # Box2D circle has a 'radius' and a 'p' (the circle center relative to the body's origin)
                     circle_center = body.transform * circle_shape.pos
                     center = self.world_to_screen(circle_center)
-                    radius = int(circle_shape.radius * RESOLUTION_SCALE_FACTOR)
-
-                    # Fill the circle with the fixture color
-                    pygame.draw.circle(self.surface, color, center, radius, width=0)
+                    radius = int(circle_shape.radius * SCALE)
+                    pygame.draw.circle(self.screen, color, center, radius, 2)
 
                 elif shape.type == b2Shape.e_polygon:
-                    # Polygon or compound polygon fixture
+                    # polygon
                     polygon_shape = fixture.shape
                     vertices = [body.transform * v for v in polygon_shape.vertices]
-                    screen_vertices = [self.world_to_screen(v) for v in vertices]
-
-                    # Fill the polygon
-                    pygame.draw.polygon(self.surface, color, screen_vertices, width=0)
+                    vertices = [self.world_to_screen(v) for v in vertices]
+                    pygame.draw.polygon(self.screen, color, vertices, 2)
 
                 else:
-                    # Could add e_edge or e_chain, etc.
+                    # For edge shapes, chain shapes, etc. You can handle them similarly:
+                    # if shape.type == b2Shape.e_edge, or b2Shape.e_chain, ...
+                    # or just skip them for now.
                     pass
 
-        # Scale the surface to the screen size and display it
-        scaled_surface = pygame.transform.smoothscale(
-            self.surface,
-            (
-                SCENE_DIMENSIONS[0] * SCREEN_SCALE_FACTOR,
-                SCENE_DIMENSIONS[1] * SCREEN_SCALE_FACTOR,
-            ),
-        )
-        self.screen.blit(scaled_surface, (0, 0))
         pygame.display.flip()
         self.clock.tick(60)
         return True
 
     def quit(self):
         pygame.quit()
-        logger.debug("Quit PygameRenderer.")

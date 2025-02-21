@@ -54,7 +54,9 @@ def load_puzzle_from_json(json_path: Path) -> dict:
 
     # Add puzzle_id from filename
     puzzle_id = json_path.stem.replace("_", ":")
-    puzzle_dict["puzzle_id"] = puzzle_id
+    puzzle_dict["id"] = puzzle_id
+
+    puzzle_dict["metadata"]["type"] = "PHYRE"
 
     # Add puzzle_type from metadata tier
     puzzle_dict["metadata"]["tier"] = ["BALL", "TWO_BALLS"][
@@ -112,7 +114,7 @@ def main(args: argparse.Namespace) -> None:
             metadata_data = MetadataData(**puzzle_dict["metadata"])
 
             puzzle_schema = PuzzleSchema(
-                puzzle_id=puzzle_dict["puzzle_id"],
+                id=puzzle_dict["id"],
                 bodies=bodies_data,
                 relationship=relationship_data,
                 metadata=metadata_data,

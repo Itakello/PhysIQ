@@ -34,17 +34,18 @@ class RelationshipData(BaseModel):
 class MetadataData(BaseModel):
     description: str
     tier: str
+    type: str
 
 
 class PuzzleSchema(BaseModel):
-    puzzle_id: str
+    id: str
     bodies: list[BodyData]
     relationship: RelationshipData
     metadata: MetadataData
 
 
 class ProposalSchema(BaseModel):
-    puzzle_id: str
+    id: str
     is_good: bool
     attempt: int
     radius: float
