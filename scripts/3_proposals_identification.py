@@ -64,6 +64,7 @@ def find_proposals_for_puzzle(
     good_found = 0
     bad_found = 0
     attempts = 0
+    overlaps = 0
 
     proposals_coll = db_manager.db["proposals"]
 
@@ -94,8 +95,9 @@ def find_proposals_for_puzzle(
                 puzzle=tmp_puzzle_doc,
                 visualize=False,
             )
-        except ValueError as e:
-            logger.warning(f"[OVERLAP] Skipping proposal [{attempts}]")
+        except ValueError:
+            overlaps += 1
+            attempts -= 1
             continue
 
         # 3) Insert into DB
@@ -142,7 +144,7 @@ def find_proposals_for_puzzle(
             proposals_coll.insert_one(proposal_data.model_dump())
 
     logger.info(
-        f"Puzzle {puzzle_id} => Good: {good_found}, Bad: {bad_found}, Attempts: {attempts}"
+        f"Puzzle {puzzle_id} => Good: {good_found}, Bad: {bad_found}, Attempts: {attempts}, Overlaps: {overlaps}"
     )
 
 
@@ -209,23 +211,23 @@ def main(args: argparse.Namespace) -> None:
     # Group them by template
     grouped = {}
     for puzzle in all_puzzles:
-        tpl_id, itn_id = parse_template_id(puzzle["puzzle_id"])
-        if tpl_id not in grouped:
-            grouped[tpl_id] = []
-        grouped[tpl_id].append(puzzle)
+        template_id, iteration_id = parse_template_id(puzzle["puzzle_id"])
+        if template_id < args.start_template:
+            continue
+        if template_id not in grouped:
+            grouped[template_id] = []
+        grouped[template_id].append(puzzle)
 
     # We'll iterate over all template_keys
     template_keys = sorted(grouped.keys())
 
     # Create a single progress bar for the entire run
-    total_puzzles = sum(len(grouped[tid]) for tid in template_keys)
+    total_puzzles = len(grouped) * args.iterations
     pbar = tqdm(
         total=total_puzzles, desc="Proposals Identification", dynamic_ncols=True
     )
 
     for template_id in template_keys:
-        if template_id < args.start_template:
-            continue
         # Up to 'iterations' tasks from this template
         tasks = grouped[template_id][: args.iterations]
         for puzzle_doc in tasks:

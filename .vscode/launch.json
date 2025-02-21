@@ -32,9 +32,9 @@
             "cwd": "${workspaceFolder}",
             "args": [
                 "--start_template",
-                "0",
+                "11",
                 "--iterations",
-                "2",
+                "1",
                 "--db_name",
                 "physiq_db",
                 "--visualize"
@@ -49,9 +49,9 @@
             "cwd": "${workspaceFolder}",
             "args": [
                 "--start_template",
-                "0",
-                "--iterations",
                 "2",
+                "--iterations",
+                "1",
                 "--num_proposals",
                 "1",
                 "--db_name",

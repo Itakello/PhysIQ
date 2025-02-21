@@ -11,7 +11,7 @@ from src.utils.const import (
     STOP_VELOCITY_THRESHOLD,
     TIME_SCALE,
     VELOCITY_ITERATIONS,
-    FRAMES_FOR_STATIC,
+    FRAMES_FOR_STATIC_EARLY_STOP,
 )
 from src.utils.pygame_renderer import PygameRenderer
 
@@ -97,7 +97,7 @@ def run_simulation(
         if _is_world_static(world):
             static_counter += 1
             if (
-                static_counter > FRAMES_FOR_STATIC
+                static_counter > FRAMES_FOR_STATIC_EARLY_STOP
             ):  # Wait a few frames to confirm static state
                 break
         else:
