@@ -30,7 +30,7 @@ from pathlib import Path
 from loguru import logger
 from tqdm import tqdm
 
-from src.managers.db_manager import MongoDBManager
+from managers.mongodb_manager import MongoDBManager
 from src.utils.box2d_runner import run_simulation
 from src.utils.const import MAX_ATTEMPTS, MAX_RADIUS, MIN_RADIUS, SCENE_DIMENSIONS
 from src.utils.db_schemas import ProposalSchema

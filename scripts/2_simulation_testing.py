@@ -1,18 +1,8 @@
 import argparse
 
-from Box2D import b2Contact, b2ContactListener, b2World
 from loguru import logger
 
-from src.classes.shapes import create_pybox2d_body
-from src.managers.db_manager import MongoDBManager, SimulationManager
-from src.utils.const import (
-    DEFAULT_Y_GRAVITY,
-    FPS,
-    MAX_SIMULATION_STEPS,
-    POSITION_ITERATIONS,
-    TIME_SCALE,
-    VELOCITY_ITERATIONS,
-)
+from src.managers import MongoDBManager, SimulationManager
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,46 +33,6 @@ def parse_args() -> argparse.Namespace:
         help="Enable Pygame visualization of the simulation",
     )
     return parser.parse_args()
-
-
-def run_box2d_simulation(puzzle: dict, visualize: bool = False) -> bool:
-    gravity = (0, -DEFAULT_Y_GRAVITY)
-    world = b2World(gravity=gravity, doSleep=True)
-
-    collision_listener = CollisionListener()
-    world.contactListener = collision_listener
-
-    # Create bodies ONCE
-    for idx, bd in enumerate(puzzle["bodies"]):
-        is_target = (idx == puzzle["relationship"]["bodyId1"]) or (
-            idx == puzzle["relationship"]["bodyId2"]
-        )
-        create_pybox2d_body(world, bd, body_index=idx, is_target=is_target)
-
-    # Only do this if we want visualization
-    renderer = None
-    if visualize:
-        from src.utils.pygame_renderer import PygameRenderer
-
-        renderer = PygameRenderer()
-
-    # Simulation loop
-    for step_i in range(MAX_SIMULATION_STEPS):
-        world.Step(TIME_SCALE / FPS, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
-
-        if visualize:
-            # Render the entire Box2D world
-            if not renderer.render(world):
-                # User closed the pygame window
-                break
-
-        if collision_listener.goal_reached:
-            break
-
-    if renderer:
-        renderer.quit()
-
-    return collision_listener.goal_reached
 
 
 def main(args: argparse.Namespace) -> None:

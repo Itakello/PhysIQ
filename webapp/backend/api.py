@@ -7,7 +7,7 @@ from dask.distributed import Client, as_completed
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from src.managers.db_manager import MongoDBManager
+from managers.mongodb_manager import MongoDBManager
 from src.utils.box2d_runner import run_simulation
 from src.utils.db_schemas import PuzzleSchema
 

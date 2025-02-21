@@ -21,7 +21,7 @@ from pathlib import Path
 from loguru import logger
 from tqdm import tqdm
 
-from src.managers.db_manager import MongoDBManager
+from managers import MongoDBManager
 from src.utils.db_schemas import (
     BodyData,
     MetadataData,

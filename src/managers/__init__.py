@@ -1,10 +1,11 @@
 from .base_manager import BaseManager
-
-# from .simulation_manager import SimulationManager
-# from .template_manager import TemplateManager
+from .mongodb_manager import MongoDBManager
+from .pygame_manager import PygameManager
+from .simulation_manager import SimulationManager
 
 __all__ = [
-    # "SimulationManager",
     "BaseManager",
-    # "TemplateManager",
+    "MongoDBManager",
+    "PygameManager",
+    "SimulationManager",
 ]

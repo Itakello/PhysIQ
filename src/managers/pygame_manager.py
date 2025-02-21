@@ -4,8 +4,8 @@ import pygame
 from Box2D import b2Shape, b2World
 from loguru import logger
 
-from ..managers.base_manager import BaseManager
-from .const import RESOLUTION_SCALE_FACTOR, SCENE_DIMENSIONS, SCREEN_SCALE_FACTOR
+from ..utils.const import RESOLUTION_SCALE_FACTOR, SCENE_DIMENSIONS, SCREEN_SCALE_FACTOR
+from .base_manager import BaseManager
 
 
 @dataclass
@@ -27,8 +27,8 @@ class PygameManager(BaseManager):
 
     def _to_pygame(self, world_point: tuple[float, float]) -> tuple[float, float]:
         """Convert Box2D coordinates to pixel coordinates."""
-        x = world_point[0] * SCALE + SCENE_DIMENSIONS[0] / 2
-        y = SCENE_DIMENSIONS[1] / 2 - world_point[1] * SCALE
+        x = world_point[0] * self.resolution_scale_factor
+        y = (SCENE_DIMENSIONS[1] - world_point[1]) * self.resolution_scale_factor
         return (x, y)
 
     def render(self, world: b2World) -> bool:
@@ -37,45 +37,48 @@ class PygameManager(BaseManager):
             if event.type == pygame.QUIT:
                 return False
 
-        self.screen.fill((255, 255, 255))  # White background
+        self.surface.fill((255, 255, 255))  # White background
 
         # Draw each body's fixtures
         for body in world.bodies:
             for fixture in body.fixtures:
                 shape = fixture.shape
 
-                # Check if the fixture is marked "target"
-                if hasattr(fixture.userData, "get") and fixture.userData.get("target"):
-                    color = (255, 0, 0)  # red
-                else:
-                    color = (0, 0, 0)  # black
+                color = fixture.userData.get("color", (0, 0, 0))
 
                 # Distinguish between shape types
                 if shape.type == b2Shape.e_circle:
                     # circle
                     circle_shape = fixture.shape
-                    # Box2D circle has a 'radius' and a 'p' (the circle center relative to the body's origin)
-                    circle_center = body.transform * circle_shape.pos
-                    center = self._to_pygame(circle_center)
-                    radius = int(circle_shape.radius * SCALE)
-                    pygame.draw.circle(self.screen, color, center, radius, 2)
+                    center = self._to_pygame(body.transform * circle_shape.pos)
+                    pygame.draw.circle(
+                        surface=self.surface,
+                        color=color,
+                        center=center,
+                        radius=circle_shape.radius * self.resolution_scale_factor,
+                        width=0,
+                    )
 
                 elif shape.type == b2Shape.e_polygon:
                     # polygon
                     polygon_shape = fixture.shape
                     vertices = [body.transform * v for v in polygon_shape.vertices]
                     vertices = [self._to_pygame(v) for v in vertices]
-                    pygame.draw.polygon(self.screen, color, vertices, 2)
+                    pygame.draw.polygon(
+                        surface=self.surface, color=color, points=vertices, width=0
+                    )
 
-                else:
-                    # For edge shapes, chain shapes, etc. You can handle them similarly:
-                    # if shape.type == b2Shape.e_edge, or b2Shape.e_chain, ...
-                    # or just skip them for now.
-                    pass
-
+        scaled_surface = pygame.transform.smoothscale(
+            self.surface,
+            (
+                self.scene_dimensions[0] * self.screen_scale_factor,
+                self.scene_dimensions[1] * self.screen_scale_factor,
+            ),
+        )
+        self.screen.blit(scaled_surface, (0, 0))
         pygame.display.flip()
         self.clock.tick(60)
         return True
 
-    def quit(self):
+    def quit(self) -> None:
         pygame.quit()
