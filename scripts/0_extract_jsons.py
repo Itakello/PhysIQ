@@ -14,27 +14,15 @@ Example:
   python 0_extract_jsons.py --output-dir custom_output
 """
 
-import argparse
 import json
 from pathlib import Path
 from typing import Union
 
-import phyre.loader
+import phyre.loader  # type: ignore
 from loguru import logger
 from tqdm import tqdm
 
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Extract PhyRE tasks to individual JSON files."
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default="task_jsons",
-        help="Directory where JSON files will be saved (default: task_jsons)",
-    )
-    return parser.parse_args()
+from src.managers import ArgparseManager
 
 
 def convert_task_to_json(task) -> Union[dict, None]:
@@ -121,7 +109,10 @@ def save_task_json(task_data: dict, task_id: str, output_dir: Path) -> None:
 
 def main() -> None:
     # Parse arguments
-    args = parse_args()
+    parser = ArgparseManager("Extract PhyRE tasks to individual JSON files.")
+    parser.add_io_args(output_folder="task_jsons")
+    args = parser.parse_args()
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True)
 
@@ -150,7 +141,7 @@ def main() -> None:
             errors += 1
 
     # Report results
-    logger.info(f"Processing complete:")
+    logger.info("Processing complete:")
     logger.info(f"- Processed: {processed}")
     logger.info(f"- Skipped: {skipped}")
     logger.info(f"- Errors: {errors}")

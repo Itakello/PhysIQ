@@ -14,7 +14,6 @@ Example:
   python 1_move_to_db.py physiq_db --input-dir task_jsons
 """
 
-import argparse
 import json
 from pathlib import Path
 
@@ -30,21 +29,7 @@ from src.utils.db_schemas import (
     ShapeData,
 )
 
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Create a MongoDB database from JSON puzzle files."
-    )
-    parser.add_argument(
-        "db_name", type=str, help="Name of the MongoDB database to be created/used."
-    )
-    parser.add_argument(
-        "--input-dir",
-        type=str,
-        default="task_jsons",
-        help="Directory containing JSON puzzle files (default: task_jsons)",
-    )
-    return parser.parse_args()
+from ..src.managers.argparse_manager import ArgparseManager
 
 
 def load_puzzle_from_json(json_path: Path) -> dict:
@@ -66,7 +51,13 @@ def load_puzzle_from_json(json_path: Path) -> dict:
     return puzzle_dict
 
 
-def main(args: argparse.Namespace) -> None:
+def main() -> None:
+    parser = ArgparseManager("Create a MongoDB database from JSON puzzle files.")
+    parser.add_common_db_args()
+    parser.add_io_args(
+        input_help="Directory containing JSON puzzle files (default: task_jsons)"
+    )
+    args = parser.parse_args()
     input_dir = Path(args.input_dir)
 
     if not input_dir.exists():

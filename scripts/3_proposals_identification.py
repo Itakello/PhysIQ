@@ -31,18 +31,8 @@ from loguru import logger
 from tqdm import tqdm
 
 from managers.mongodb_manager import MongoDBManager
-from src.utils.box2d_runner import run_simulation
 from src.utils.const import MAX_ATTEMPTS, MAX_RADIUS, MIN_RADIUS, SCENE_DIMENSIONS
 from src.utils.db_schemas import ProposalSchema
-
-
-def parse_template_id(puzzle_id: str) -> tuple[int, int]:
-    """
-    Convert puzzle_id (like '00000:0') into two ints (template_part, iteration_part).
-    Used to group puzzles by template and sort.
-    """
-    main_part, iteration_part = puzzle_id.split(":")
-    return int(main_part), int(iteration_part)
 
 
 def find_proposals_for_puzzle(
@@ -149,44 +139,12 @@ def find_proposals_for_puzzle(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Brute-force proposals identification for puzzles in MongoDB."
+    parser = ArgparseManager(
+        "Brute-force proposals identification for puzzles in MongoDB."
     )
-    parser.add_argument(
-        "--start_template",
-        type=int,
-        default=0,
-        help="Index of the first template to test",
-    )
-    parser.add_argument(
-        "--db_name",
-        type=str,
-        default="physiq_db",
-        help="Name of the MongoDB database to connect to",
-    )
-    parser.add_argument(
-        "--visualize",
-        action="store_true",
-        help="Enable PyGame window rendering",
-    )
-    parser.add_argument(
-        "--iterations",
-        type=int,
-        default=5,
-        help="Number of puzzle iterations to process per template",
-    )
-    parser.add_argument(
-        "--num_proposals",
-        type=int,
-        default=3,
-        help="How many good and bad proposals to gather for each puzzle",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Random seed for reproducible position/radius generation",
-    )
+    parser.add_common_db_args()
+    parser.add_common_simulation_args()
+    parser.add_proposal_args()
     return parser.parse_args()
 
 
@@ -201,30 +159,17 @@ def main(args: argparse.Namespace) -> None:
 
     # Connect to DB
     db_manager = MongoDBManager(db_name=args.db_name)
-    puzzles_coll = db_manager.db["puzzles"]
 
-    # Retrieve all puzzles from DB
-    all_puzzles = list(puzzles_coll.find({}))
-    # Sort them by the integer part of puzzle_id
-    all_puzzles.sort(key=lambda p: parse_template_id(p["puzzle_id"]))
+    grouped_templates = db_manager.get_grouped_templates(
+        args.start_template, args.iterations
+    )
 
-    # Group them by template
-    grouped = {}
-    for puzzle in all_puzzles:
-        template_id, iteration_id = parse_template_id(puzzle["puzzle_id"])
-        if template_id < args.start_template:
-            continue
-        if template_id not in grouped:
-            grouped[template_id] = []
-        grouped[template_id].append(puzzle)
+    simulation_manager = SimulationManager()
 
-    # We'll iterate over all template_keys
-    template_keys = sorted(grouped.keys())
-
-    # Create a single progress bar for the entire run
-    total_puzzles = len(grouped) * args.iterations
     pbar = tqdm(
-        total=total_puzzles, desc="Proposals Identification", dynamic_ncols=True
+        total=len(grouped_templates) * args.iterations,
+        desc="Proposals Identification",
+        dynamic_ncols=True,
     )
 
     for template_id in template_keys:

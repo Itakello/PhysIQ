@@ -1,3 +1,4 @@
+from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
@@ -8,11 +9,13 @@ from PIL import Image
 
 from ..classes.shapes import create_pybox2d_body
 from ..utils.const import (
-    COLLISION_DURATION_THRESHOLD,
+    COLLISION_WINDOW_SIZE,
     DEFAULT_Y_GRAVITY,
     FPS,
+    FRAMES_FOR_STATIC_EARLY_STOP,
     MAX_STEPS,
     POSITION_ITERATIONS,
+    REQUIRED_COLLISIONS,
     STOP_VELOCITY_THRESHOLD,
     TIME_SCALE,
     VELOCITY_ITERATIONS,
@@ -23,20 +26,25 @@ from .pygame_manager import PygameManager
 
 class CollisionListener(b2ContactListener):
     """
-    Custom collision listener that records collisions between two specific body indices.
-    We identify the colliding bodies by matching fixture.userData or body.userData.
-    Tracks collision duration to ensure it meets the threshold requirement.
+    Custom collision listener that records collision frequency between target bodies
+    within a sliding window of frames.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        window_size: int = COLLISION_WINDOW_SIZE,
+        required_collisions: int = REQUIRED_COLLISIONS,
+    ) -> None:
         super().__init__()
         self.goal_reached = False
-        self.collision_start_frame = None
         self.current_frame = 0
+        self.window_size = window_size
+        self.required_collisions = required_collisions
+        self.collision_history = deque([False] * window_size, maxlen=window_size)
         self.is_colliding = False
 
     def BeginContact(self, contact: b2Contact) -> None:
-        """Start tracking collision duration when target bodies collide."""
+        """Record when target bodies start colliding."""
         fA = contact.fixtureA
         fB = contact.fixtureB
 
@@ -49,11 +57,9 @@ class CollisionListener(b2ContactListener):
         if bodyA_id is not None and bodyB_id is not None:
             if fA.userData.get("target") and fB.userData.get("target"):
                 self.is_colliding = True
-                if self.collision_start_frame is None:
-                    self.collision_start_frame = self.current_frame
 
     def EndContact(self, contact: b2Contact) -> None:
-        """Reset collision tracking when target bodies separate."""
+        """Record when target bodies stop colliding."""
         fA = contact.fixtureA
         fB = contact.fixtureB
 
@@ -66,16 +72,19 @@ class CollisionListener(b2ContactListener):
         if bodyA_id is not None and bodyB_id is not None:
             if fA.userData.get("target") and fB.userData.get("target"):
                 self.is_colliding = False
-                self.collision_start_frame = None
 
     def update(self) -> None:
-        """Update frame counter and check if collision duration meets threshold."""
+        """
+        Update collision history and check if collision frequency
+        meets the threshold within the sliding window.
+        """
         self.current_frame += 1
+        self.collision_history.append(self.is_colliding)
 
-        if self.is_colliding and self.collision_start_frame is not None:
-            collision_duration = self.current_frame - self.collision_start_frame
-            if collision_duration >= COLLISION_DURATION_THRESHOLD:
-                self.goal_reached = True
+        # Count collisions in the sliding window
+        collisions_in_window = sum(1 for frame in self.collision_history if frame)
+        if collisions_in_window >= self.required_collisions:
+            self.goal_reached = True
 
 
 @dataclass
@@ -107,7 +116,6 @@ class SimulationManager(BaseManager):
         max_steps: int = MAX_STEPS,
         time_scale: float = TIME_SCALE,
         fps: int = FPS,
-        collision_duration_threshold: int = COLLISION_DURATION_THRESHOLD,
     ) -> tuple[bool, Image.Image | None]:
         world = b2World(gravity=(0, -y_gravity), doSleep=True)
 
@@ -140,7 +148,7 @@ class SimulationManager(BaseManager):
 
         # -- 5) Main simulation loop --
         static_counter = 0
-        for step_i in range(max_steps):
+        for _ in range(max_steps):
             world.Step(time_scale / fps, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
 
             # Render if needed
@@ -149,14 +157,16 @@ class SimulationManager(BaseManager):
                 if not keep_going:
                     break  # user closed window
 
-            if collision_listener.goal_reached:
+            world.contactListener.update()
+
+            if world.contactListener.goal_reached:
                 logger.debug("Collision goal reached.")
                 break
 
             # Check if system is static
             if self._is_world_static(world):
                 static_counter += 1
-                if static_counter > collision_duration_threshold:
+                if static_counter > FRAMES_FOR_STATIC_EARLY_STOP:
                     logger.debug("World is static; stopping simulation early.")
                     break
             else:
@@ -165,4 +175,4 @@ class SimulationManager(BaseManager):
         if renderer:
             renderer.quit()
 
-        return collision_listener.goal_reached, screenshot
+        return world.contactListener.goal_reached, screenshot

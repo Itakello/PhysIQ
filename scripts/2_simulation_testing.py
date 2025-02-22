@@ -1,37 +1,17 @@
 import argparse
 
 from loguru import logger
+from tqdm import tqdm
 
-from src.managers import MongoDBManager, SimulationManager
+from src.managers import ArgparseManager, MongoDBManager, SimulationManager
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run PyBox2D simulations on puzzle templates from MongoDB."
+    parser = ArgparseManager(
+        "Run PyBox2D simulations on puzzle templates from MongoDB."
     )
-    parser.add_argument(
-        "--start_template",
-        type=int,
-        default=0,
-        help="Index of the first template to test",
-    )
-    parser.add_argument(
-        "--iterations",
-        type=int,
-        default=5,
-        help="Number of puzzle iterations to test per template",
-    )
-    parser.add_argument(
-        "--db_name",
-        type=str,
-        default="physiq_db",
-        help="Name of the MongoDB database to connect to",
-    )
-    parser.add_argument(
-        "--visualize",
-        action="store_true",
-        help="Enable Pygame visualization of the simulation",
-    )
+    parser.add_common_db_args()
+    parser.add_common_simulation_args()
     return parser.parse_args()
 
 
@@ -44,23 +24,30 @@ def main(args: argparse.Namespace) -> None:
     )
 
     simulation_manager = SimulationManager()
+    total_puzzles = 0
+    solutions_found = 0
 
-    for template_id, puzzles in grouped_templates.items():
+    for template_id, puzzles in tqdm(
+        grouped_templates.items(), desc="Simulation progress"
+    ):
         if not puzzles:
             logger.info(f"No tasks found for template {template_id}")
             continue
 
-        logger.info(f"Simulating template {template_id} with {len(puzzles)} tasks")
-
         for puzzle_doc in puzzles:
+            total_puzzles += 1
             pid = puzzle_doc["id"]
             collided, _ = simulation_manager.run_simulation(
                 puzzle_doc, visualize=args.visualize, get_screenshot=False
             )
-            logger.info(f"Puzzle {pid} => Collided? {collided}")
+            if collided:
+                logger.info(f"Collision detected for puzzle {pid}")
+                solutions_found += 1
 
     db_manager.close_connection()
     logger.info("Done running simulations!")
+    logger.info(f"Solutions found without proposals: [{solutions_found}]")
+    logger.info(f"Total puzzles tested: [{total_puzzles}]")
 
 
 if __name__ == "__main__":
