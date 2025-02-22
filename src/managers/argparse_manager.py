@@ -34,7 +34,7 @@ class ArgparseManager(BaseManager):
         self.parser.add_argument(
             "--iterations",
             type=int,
-            default=5,
+            default=100,
             help="Number of puzzle iterations to process per template",
         )
         self.parser.add_argument(
@@ -51,7 +51,7 @@ class ArgparseManager(BaseManager):
             self.parser.add_argument(
                 "--input-dir",
                 type=str,
-                help=f"Directory where JSON files will be saved (default: {input_folder})",
+                help=f"Directory where JSON files have been saved (default: {input_folder})",
                 default=input_folder,
             )
         if output_folder:

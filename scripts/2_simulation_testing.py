@@ -1,21 +1,16 @@
-import argparse
-
 from loguru import logger
 from tqdm import tqdm
 
 from src.managers import ArgparseManager, MongoDBManager, SimulationManager
 
 
-def parse_args() -> argparse.Namespace:
+def main() -> None:
     parser = ArgparseManager(
         "Run PyBox2D simulations on puzzle templates from MongoDB."
     )
     parser.add_common_db_args()
     parser.add_common_simulation_args()
-    return parser.parse_args()
-
-
-def main(args: argparse.Namespace) -> None:
+    args = parser.parse_args()
     # Connect to DB
     db_manager = MongoDBManager(db_name=args.db_name)
 
@@ -51,5 +46,4 @@ def main(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args)
+    main()

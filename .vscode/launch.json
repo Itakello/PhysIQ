@@ -34,7 +34,7 @@
                 "--start_template",
                 "0",
                 "--iterations",
-                "10",
+                "100",
                 "--db_name",
                 "physiq_db",
                 //"--visualize"

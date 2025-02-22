@@ -20,7 +20,7 @@ from pathlib import Path
 from loguru import logger
 from tqdm import tqdm
 
-from managers import MongoDBManager
+from src.managers import ArgparseManager, MongoDBManager
 from src.utils.db_schemas import (
     BodyData,
     MetadataData,
@@ -28,8 +28,6 @@ from src.utils.db_schemas import (
     RelationshipData,
     ShapeData,
 )
-
-from ..src.managers.argparse_manager import ArgparseManager
 
 
 def load_puzzle_from_json(json_path: Path) -> dict:
@@ -54,9 +52,7 @@ def load_puzzle_from_json(json_path: Path) -> dict:
 def main() -> None:
     parser = ArgparseManager("Create a MongoDB database from JSON puzzle files.")
     parser.add_common_db_args()
-    parser.add_io_args(
-        input_help="Directory containing JSON puzzle files (default: task_jsons)"
-    )
+    parser.add_io_args(input_folder="task_jsons")
     args = parser.parse_args()
     input_dir = Path(args.input_dir)
 
@@ -123,5 +119,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args)
+    main()
