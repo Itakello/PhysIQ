@@ -1,6 +1,8 @@
 import argparse
+import sys
 from dataclasses import dataclass, field
-from email.policy import default
+
+from loguru import logger
 
 from .base_manager import BaseManager
 
@@ -13,6 +15,33 @@ class ArgparseManager(BaseManager):
     def __post_init__(self) -> None:
         """Initialize the argument parser with the given description."""
         self.parser = argparse.ArgumentParser(description=self.description)
+        self._add_debug_args()
+
+    def _add_debug_args(self) -> None:
+        """Add debug-related arguments."""
+        self.parser.add_argument(
+            "--debug",
+            action="store_true",
+            help="Enable debug logging level",
+        )
+
+    def _set_loguru_level(self, debug: bool) -> None:
+        """Set the loguru logging level based on the debug argument."""
+        logger.remove()
+
+        default_format = (
+            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+            "<level>{level.icon} </level> | "
+            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+            "<level>{message}</level>"
+        )
+
+        logger.add(
+            sys.stderr,
+            level="DEBUG" if debug else "INFO",
+            colorize=True,
+            format=default_format,
+        )
 
     def add_common_db_args(self) -> None:
         """Add common database-related arguments."""
@@ -21,6 +50,9 @@ class ArgparseManager(BaseManager):
             type=str,
             default="physiq_db",
             help="Name of the MongoDB database to connect to",
+        )
+        self.parser.add_argument(
+            "--save_to_db", action="store_true", help="Save to MongoDB"
         )
 
     def add_common_simulation_args(self) -> None:
@@ -31,6 +63,13 @@ class ArgparseManager(BaseManager):
             type=int,
             default=start_template,
             help=f"Index of the first template to test (default: {start_template})",
+        )
+        start_iteration = 0
+        self.parser.add_argument(
+            "--start_iteration",
+            type=int,
+            default=start_iteration,
+            help=f"Index of the first iteration to test (default: {start_iteration})",
         )
         iterations = 100
         self.parser.add_argument(
@@ -43,6 +82,9 @@ class ArgparseManager(BaseManager):
             "--visualize",
             action="store_true",
             help="Enable PyGame window rendering",
+        )
+        self.parser.add_argument(
+            "--templates_type", type=str, default="PHYRE", choices=["PHYRE", "TEST"]
         )
 
     def add_io_args(
@@ -70,7 +112,7 @@ class ArgparseManager(BaseManager):
             "--num_proposals",
             type=int,
             default=3,
-            help="How many good and bad proposals to gather for each puzzle",
+            help="How many proposals to gather for each puzzle",
         )
         self.parser.add_argument(
             "--seed",
@@ -80,5 +122,7 @@ class ArgparseManager(BaseManager):
         )
 
     def parse_args(self) -> argparse.Namespace:
-        """Parse and return the command line arguments."""
-        return self.parser.parse_args()
+        """Parse command line arguments and configure logging level."""
+        args = self.parser.parse_args()
+        self._set_loguru_level(args.debug)
+        return args

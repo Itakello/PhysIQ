@@ -31,38 +31,13 @@ from tqdm import tqdm
 
 from src.managers import ArgparseManager, MongoDBManager, SimulationManager
 from src.utils.const import MAX_ATTEMPTS, MAX_RADIUS, MIN_RADIUS, SCENE_DIMENSIONS
-from src.utils.db_schemas import ProposalSchema
+from src.utils.db_schemas import ProposalData, ProposalSchema
 
 
-def find_proposals_for_puzzle(
-    db_manager: MongoDBManager,
-    puzzle_doc: dict,
-    num_proposals: int,
-    visualize: bool,
-    images_dir: Path,
-) -> None:
-    """
-    Try random positions/radii for the puzzle until:
-      - We find num_proposals good, and num_proposals bad
-      - Or we exceed MAX_ATTEMPTS
-
-    Then log info and insert into 'proposals' collection in DB.
-    """
-    puzzle_id = puzzle_doc["puzzle_id"]
-
-    good_found = 0
-    bad_found = 0
-    attempts = 0
-    overlaps = 0
-
-    proposals_coll = db_manager.db["proposals"]
-
-    while attempts < MAX_ATTEMPTS:
-        if good_found >= num_proposals and bad_found >= num_proposals:
-            break
-        attempts += 1
-
-        # 1) Generate random position & radius
+def create_ball_doc(n_balls: int) -> list[dict]:
+    assert n_balls > 0
+    balls = []
+    for _ in range(n_balls):
         radius = random.uniform(MIN_RADIUS, MAX_RADIUS)
         x = random.uniform(radius, SCENE_DIMENSIONS[0] - radius)
         y = random.uniform(radius, SCENE_DIMENSIONS[1] - radius)
@@ -75,66 +50,80 @@ def find_proposals_for_puzzle(
             "radius": radius,
             "proposal": True,
         }
+        balls.append(ball_doc)
+    return balls
+
+
+def find_good_proposals_for_puzzle(
+    db_manager: MongoDBManager,
+    simulation_manager: SimulationManager,
+    puzzle_doc: dict,
+    num_proposals: int,
+    visualize: bool,
+    images_dir: Path,
+    save_proposals: bool = True,
+) -> tuple[int, int]:
+    """
+    Try random positions/radii for the puzzle until:
+      - We find num_proposals good, and num_proposals bad
+      - Or we exceed MAX_ATTEMPTS
+
+    Then log info and insert into 'proposals' collection in DB.
+    """
+
+    good_proposals = 0
+    attempt = 0
+
+    for attempt in tqdm(
+        range(1, MAX_ATTEMPTS + 1),
+        desc=f"Puzzle {puzzle_doc['id']}",
+    ):
+        if good_proposals >= num_proposals:
+            break
+
+        # 1) Generate random position & radius
+        n_balls = 1 if puzzle_doc["metadata"]["tier"] == "BALL" else 2
+        ball_docs = create_ball_doc(n_balls=n_balls)
+
         tmp_puzzle_doc = copy.deepcopy(puzzle_doc)
-        tmp_puzzle_doc["bodies"].append(ball_doc)
+        tmp_puzzle_doc["bodies"].extend(ball_docs)
 
         # Check for overlapping
         try:
-            is_good, _ = run_simulation(
+            goal_reached, _ = simulation_manager.run_simulation(
                 puzzle=tmp_puzzle_doc,
                 visualize=False,
             )
         except ValueError:
-            overlaps += 1
-            attempts -= 1
             continue
 
         # 3) Insert into DB
         #   (But only if it meets the needed type)
-        if is_good and good_found < num_proposals:
-            good_found += 1
-            _, screenshot = run_simulation(
+        if goal_reached and good_proposals < num_proposals:
+            good_proposals += 1
+            _, screenshot = simulation_manager.run_simulation(
                 puzzle=tmp_puzzle_doc,
                 visualize=visualize,
                 get_screenshot=True,
             )
-            screenshot_path = images_dir / f"{puzzle_id}_good_{good_found}.png"
+            screenshot_path = (
+                images_dir / f"{puzzle_doc['id']}_good_{good_proposals}.png"
+            )
             # Save screenshot in screenshot_path
-            screenshot.save(screenshot_path)
             # Insert to DB
+            proposals = [ProposalData(**ball_doc) for ball_doc in ball_docs]
             proposal_data = ProposalSchema(
-                puzzle_id=puzzle_id,
+                id=puzzle_doc["id"],
                 is_good=True,
-                attempt=attempts,
-                radius=radius,
-                position=[x, y],
+                attempt=attempt,
+                proposals=proposals,
                 image_path=screenshot_path.as_posix(),
+                tier="GOOD",
             )
-            proposals_coll.insert_one(proposal_data.model_dump())
-        elif (not is_good) and bad_found < num_proposals:
-            bad_found += 1
-            _, screenshot = run_simulation(
-                puzzle=tmp_puzzle_doc,
-                visualize=visualize,
-                get_screenshot=True,
-            )
-            screenshot_path = images_dir / f"{puzzle_id}_bad_{bad_found}.png"
-            # Save screenshot in screenshot_path
-            screenshot.save(screenshot_path)
-            # Insert to DB
-            proposal_data = ProposalSchema(
-                puzzle_id=puzzle_id,
-                is_good=False,
-                attempt=attempts,
-                radius=radius,
-                position=[x, y],
-                image_path=screenshot_path.as_posix(),
-            )
-            proposals_coll.insert_one(proposal_data.model_dump())
-
-    logger.info(
-        f"Puzzle {puzzle_id} => Good: {good_found}, Bad: {bad_found}, Attempts: {attempts}, Overlaps: {overlaps}"
-    )
+            if save_proposals:
+                screenshot.save(screenshot_path)
+                db_manager.insert_proposal(proposal_data)
+    return good_proposals, attempt
 
 
 def main() -> None:
@@ -157,7 +146,9 @@ def main() -> None:
     db_manager = MongoDBManager(db_name=args.db_name)
 
     grouped_templates = db_manager.get_grouped_templates(
-        args.start_template, args.iterations
+        start_template=args.start_template,
+        iterations=args.iterations,
+        type=args.templates_type,
     )
 
     simulation_manager = SimulationManager()
@@ -165,20 +156,19 @@ def main() -> None:
     for template_id, puzzles in tqdm(
         grouped_templates.items(), desc="Good proposals identification progress"
     ):
-        n_puzzles = 0
-        n_good_proposals = 0
         for puzzle_doc in puzzles:
-            find_proposals_for_puzzle(
+            good_proposals, n_attempts = find_good_proposals_for_puzzle(
                 db_manager=db_manager,
+                simulation_manager=simulation_manager,
                 puzzle_doc=puzzle_doc,
                 num_proposals=args.num_proposals,
                 visualize=args.visualize,
                 images_dir=images_dir,
+                save_proposals=args.save_to_db,
             )
-            n_good_proposals += 1
-        logger.info(
-            f"Total good proposals identified for template {template_id}: {n_good_proposals}"
-        )
+            logger.info(
+                f"Puzzle {puzzle_doc['id']}: Found {good_proposals} good proposals in {n_attempts} attempts."
+            )
     db_manager.close_connection()
     logger.info("Done identifying proposals!")
 

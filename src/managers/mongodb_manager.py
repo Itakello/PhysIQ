@@ -8,7 +8,7 @@ from typing import Any
 from loguru import logger
 from pymongo import MongoClient
 
-from ..utils.db_schemas import PuzzleSchema
+from ..utils.db_schemas import ProposalSchema, PuzzleSchema
 from .base_manager import BaseManager
 
 
@@ -46,14 +46,30 @@ class MongoDBManager(BaseManager):
         doc = puzzle_data.model_dump()
         self._db["puzzles"].insert_one(doc)
 
+    def insert_proposal(self, proposal_data: ProposalSchema) -> None:
+        """
+        Insert a proposal document into the proposals collection.
+        """
+        doc = proposal_data.model_dump()
+        self._db["proposals"].insert_one(doc)
+
     def get_grouped_templates(
-        self, start_template: int, iterations: int
+        self,
+        start_template: int,
+        start_iteration: int,
+        iterations: int,
+        type: str = "PHYRE",
     ) -> dict[int, list[dict]]:
         """
-        Return all puzzles from the DB, grouped by their template (integer part of id).
+        Return all puzzles from the DB with matching type, grouped by their template (integer part of id).
         Also sort each group by iteration, then slice up to `iterations`.
+
+        Args:
+            start_template: The template ID to start from
+            iterations: Maximum number of iterations to include per template
+            type: The puzzle type to filter by (defaults to "PHYRE")
         """
-        all_puzzles = list(self._db["puzzles"].find({}))
+        all_puzzles = list(self._db["puzzles"].find({"metadata.type": type}))
         # Sort by puzzle_id => parse_template_id
         all_puzzles.sort(key=lambda p: parse_puzzle_id(p["id"]))
 
@@ -66,7 +82,7 @@ class MongoDBManager(BaseManager):
 
         # Keep only up to 'iterations' from each group
         for k in grouped:
-            grouped[k] = grouped[k][:iterations]
+            grouped[k] = grouped[k][start_iteration : start_iteration + iterations]
         return grouped
 
     def close_connection(self) -> None:

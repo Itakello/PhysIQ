@@ -42,6 +42,7 @@ class CollisionListener(b2ContactListener):
         self.required_collisions = required_collisions
         self.collision_history = deque([False] * window_size, maxlen=window_size)
         self.is_colliding = False
+        self.max_collisions = 0
 
     def BeginContact(self, contact: b2Contact) -> None:
         """Record when target bodies start colliding."""
@@ -83,6 +84,7 @@ class CollisionListener(b2ContactListener):
 
         # Count collisions in the sliding window
         collisions_in_window = sum(1 for frame in self.collision_history if frame)
+        self.max_collisions = max(self.max_collisions, collisions_in_window)
         if collisions_in_window >= self.required_collisions:
             self.goal_reached = True
 
@@ -117,6 +119,7 @@ class SimulationManager(BaseManager):
         time_scale: float = TIME_SCALE,
         fps: int = FPS,
     ) -> tuple[bool, Image.Image | None]:
+        logger.debug(f"Running simulation for puzzle: {puzzle['id']}")
         world = b2World(gravity=(0, -y_gravity), doSleep=True)
 
         collision_listener = CollisionListener()
@@ -146,7 +149,6 @@ class SimulationManager(BaseManager):
                 arr = np.transpose(arr, (1, 0, 2))
                 screenshot = Image.fromarray(arr)
 
-        # -- 5) Main simulation loop --
         static_counter = 0
         for _ in range(max_steps):
             world.Step(time_scale / fps, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
@@ -167,7 +169,7 @@ class SimulationManager(BaseManager):
             if self._is_world_static(world):
                 static_counter += 1
                 if static_counter > FRAMES_FOR_STATIC_EARLY_STOP:
-                    logger.debug("World is static; stopping simulation early.")
+                    # logger.debug("World is static; stopping simulation early.")
                     break
             else:
                 static_counter = 0
@@ -175,4 +177,8 @@ class SimulationManager(BaseManager):
         if renderer:
             renderer.quit()
 
+        if collision_listener.max_collisions > 0:
+            logger.debug(
+                f"Simulation completed. Max collisions: {collision_listener.max_collisions}"
+            )
         return world.contactListener.goal_reached, screenshot

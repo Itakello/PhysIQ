@@ -5,8 +5,6 @@ logs/
 wandb/
 .cursorrules
 
-data/
-data_old/
 puzzle_jsons/
 images/
 .mypy_cache/

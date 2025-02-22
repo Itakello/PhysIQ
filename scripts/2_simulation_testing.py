@@ -15,7 +15,10 @@ def main() -> None:
     db_manager = MongoDBManager(db_name=args.db_name)
 
     grouped_templates = db_manager.get_grouped_templates(
-        args.start_template, args.iterations
+        start_template=args.start_template,
+        start_iteration=args.start_iteration,
+        iterations=args.iterations,
+        type=args.templates_type,
     )
 
     simulation_manager = SimulationManager()
@@ -32,7 +35,7 @@ def main() -> None:
                 puzzle_doc, visualize=args.visualize, get_screenshot=False
             )
             if goal_reached:
-                logger.info(f"Goal reached without proposals for puzzle {pid}")
+                logger.warning(f"Goal reached without proposals for puzzle {pid}")
                 solutions_found += 1
 
     db_manager.close_connection()

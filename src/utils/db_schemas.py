@@ -38,10 +38,15 @@ class PuzzleSchema(BaseModel):
     metadata: MetadataData
 
 
+class ProposalData(BaseModel):
+    radius: float
+    position: list[float]
+
+
 class ProposalSchema(BaseModel):
     id: str
     is_good: bool
     attempt: int
-    radius: float
-    position: list[float]
+    proposals: list[ProposalData]
     image_path: str
+    tier: str

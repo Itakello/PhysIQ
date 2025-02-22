@@ -101,7 +101,7 @@ def main() -> None:
             metadata_data = MetadataData(**puzzle_dict["metadata"])
 
             puzzle_schema = PuzzleSchema(
-                id=puzzle_dict["id"],
+                id=puzzle_dict["id"].split(":")[0] + ":" + f"{inserted_count % 100:03}",
                 bodies=bodies_data,
                 relationship=relationship_data,
                 metadata=metadata_data,
