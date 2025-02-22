@@ -2,9 +2,9 @@
 0_extract_jsons.py
 
 Script that:
-1. Loads all tasks from phyre.loader
-2. Creates a 'task_jsons' directory if it doesn't exist
-3. Converts each task to a JSON file and saves it
+1. Loads all puzzles from phyre.loader
+2. Creates a 'puzzle_jsons' directory if it doesn't exist
+3. Converts each puzzle to a JSON file and saves it
 4. Provides progress feedback and error reporting
 
 Usage:
@@ -16,7 +16,7 @@ Example:
 
 import json
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
 import phyre.loader  # type: ignore
 from loguru import logger
@@ -25,17 +25,17 @@ from tqdm import tqdm
 from src.managers import ArgparseManager
 
 
-def convert_task_to_json(task) -> Union[dict, None]:
-    """Convert a PhyRE task to a JSON-compatible dictionary."""
-    if task is None or task.scene is None:
+def convert_puzzle_to_json(puzzle: Any) -> Union[dict, None]:
+    """Convert a PhyRE puzzle to a JSON-compatible dictionary."""
+    if puzzle is None or puzzle.scene is None:
         return None
 
-    scene_width = task.scene.width
-    scene_height = task.scene.height
+    scene_width = puzzle.scene.width
+    scene_height = puzzle.scene.height
 
     # Bodies
     bodies = []
-    for body in task.scene.bodies:
+    for body in puzzle.scene.bodies:
         body_info = {
             "position": [body.position.x, body.position.y],
             "bodyType": body.bodyType - 1,  # Adjusting index from phyre
@@ -74,20 +74,20 @@ def convert_task_to_json(task) -> Union[dict, None]:
 
     # Relationship
     relationship = {
-        "bodyId1": task.bodyId1,
-        "bodyId2": task.bodyId2,
-        "relationships": [(r - 6) for r in task.relationships],
+        "bodyId1": puzzle.bodyId1,
+        "bodyId2": puzzle.bodyId2,
+        "relationships": [(r - 6) for r in puzzle.relationships],
     }
 
     # Basic tier mapping
     tier_mapping = {"BALL": 0, "TWO_BALLS": 1}
-    if task.tier not in tier_mapping:
+    if puzzle.tier not in tier_mapping:
         return None
 
     # Metadata
     metadata = {
-        "description": task.description,
-        "tier": tier_mapping[task.tier],
+        "description": puzzle.description,
+        "tier": tier_mapping[puzzle.tier],
     }
 
     return {
@@ -98,46 +98,46 @@ def convert_task_to_json(task) -> Union[dict, None]:
     }
 
 
-def save_task_json(task_data: dict, task_id: str, output_dir: Path) -> None:
-    """Save task data to a JSON file."""
-    filename = f"{task_id.replace(':', '_')}.json"
+def save_puzzle_json(puzzle_data: dict, puzzle_id: str, output_dir: Path) -> None:
+    """Save puzzle data to a JSON file."""
+    filename = f"{puzzle_id.replace(':', '_')}.json"
     filepath = output_dir / filename
 
     with open(filepath, "w") as f:
-        json.dump(task_data, f, indent=2)
+        json.dump(puzzle_data, f, indent=2)
 
 
 def main() -> None:
     # Parse arguments
-    parser = ArgparseManager("Extract PhyRE tasks to individual JSON files.")
-    parser.add_io_args(output_folder="task_jsons")
+    parser = ArgparseManager("Extract PhyRE puzzles to individual JSON files.")
+    parser.add_io_args(output_folder="puzzle_jsons")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True)
 
-    # Load all tasks
-    logger.info("Loading PhyRE tasks...")
-    all_tasks = phyre.loader.load_compiled_task_dict()
-    logger.info(f"Loaded {len(all_tasks)} tasks")
+    # Load all puzzles
+    logger.info("Loading PhyRE puzzles...")
+    all_puzzles = phyre.loader.load_compiled_task_dict()
+    logger.info(f"Loaded {len(all_puzzles)} puzzles")
 
-    # Process tasks
+    # Process puzzles
     processed = 0
     skipped = 0
     errors = 0
 
-    for task_id, task in tqdm(all_tasks.items(), desc="Processing tasks"):
+    for puzzle_id, puzzle in tqdm(all_puzzles.items(), desc="Processing puzzles"):
         try:
-            task_data = convert_task_to_json(task)
-            if task_data is None:
+            puzzle_data = convert_puzzle_to_json(puzzle)
+            if puzzle_data is None:
                 skipped += 1
                 continue
 
-            save_task_json(task_data, task_id, output_dir)
+            save_puzzle_json(puzzle_data, puzzle_id, output_dir)
             processed += 1
 
         except Exception as e:
-            logger.error(f"Error processing task {task_id}: {e}")
+            logger.error(f"Error processing puzzle {puzzle_id}: {e}")
             errors += 1
 
     # Report results

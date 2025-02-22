@@ -22,7 +22,6 @@ Usage:
       --seed 42
 """
 
-import argparse
 import copy
 import random
 from pathlib import Path
@@ -30,7 +29,7 @@ from pathlib import Path
 from loguru import logger
 from tqdm import tqdm
 
-from managers.mongodb_manager import MongoDBManager
+from src.managers import ArgparseManager, MongoDBManager, SimulationManager
 from src.utils.const import MAX_ATTEMPTS, MAX_RADIUS, MIN_RADIUS, SCENE_DIMENSIONS
 from src.utils.db_schemas import ProposalSchema
 
@@ -138,17 +137,14 @@ def find_proposals_for_puzzle(
     )
 
 
-def parse_args() -> argparse.Namespace:
+def main() -> None:
     parser = ArgparseManager(
         "Brute-force proposals identification for puzzles in MongoDB."
     )
     parser.add_common_db_args()
     parser.add_common_simulation_args()
     parser.add_proposal_args()
-    return parser.parse_args()
-
-
-def main(args: argparse.Namespace) -> None:
+    args = parser.parse_args()
 
     # Set random seed
     random.seed(args.seed)
@@ -166,19 +162,12 @@ def main(args: argparse.Namespace) -> None:
 
     simulation_manager = SimulationManager()
 
-    pbar = tqdm(
-        total=len(grouped_templates) * args.iterations,
-        desc="Proposals Identification",
-        dynamic_ncols=True,
-    )
-
-    for template_id in template_keys:
-        # Up to 'iterations' tasks from this template
-        tasks = grouped[template_id][: args.iterations]
-        for puzzle_doc in tasks:
-            # We'll handle logs with tqdm.write so the bar stays clean
-            tqdm.write(f"Processing puzzle_id={puzzle_doc['puzzle_id']} ...")
-
+    for template_id, puzzles in tqdm(
+        grouped_templates.items(), desc="Good proposals identification progress"
+    ):
+        n_puzzles = 0
+        n_good_proposals = 0
+        for puzzle_doc in puzzles:
             find_proposals_for_puzzle(
                 db_manager=db_manager,
                 puzzle_doc=puzzle_doc,
@@ -186,13 +175,13 @@ def main(args: argparse.Namespace) -> None:
                 visualize=args.visualize,
                 images_dir=images_dir,
             )
-            pbar.update(1)
-
-    pbar.close()
+            n_good_proposals += 1
+        logger.info(
+            f"Total good proposals identified for template {template_id}: {n_good_proposals}"
+        )
     db_manager.close_connection()
     logger.info("Done identifying proposals!")
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args)
+    main()

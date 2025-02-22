@@ -12,7 +12,7 @@ from ..utils.db_schemas import PuzzleSchema
 from .base_manager import BaseManager
 
 
-def parse_template_id(puzzle_id: str) -> tuple[int, int]:
+def parse_puzzle_id(puzzle_id: str) -> tuple[int, int]:
     # "00012:34" -> (12, 34)
     main_part, iteration_part = puzzle_id.split(":")
     return int(main_part), int(iteration_part)
@@ -55,11 +55,11 @@ class MongoDBManager(BaseManager):
         """
         all_puzzles = list(self._db["puzzles"].find({}))
         # Sort by puzzle_id => parse_template_id
-        all_puzzles.sort(key=lambda p: parse_template_id(p["id"]))
+        all_puzzles.sort(key=lambda p: parse_puzzle_id(p["id"]))
 
         grouped = {}
         for p in all_puzzles:
-            t_id, i_id = parse_template_id(p["id"])
+            t_id, i_id = parse_puzzle_id(p["id"])
             if t_id < start_template:
                 continue
             grouped.setdefault(t_id, []).append(p)

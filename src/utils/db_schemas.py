@@ -1,9 +1,3 @@
-"""
-Puzzle Schema definitions using Pydantic.
-"""
-
-from typing import Any
-
 from pydantic import BaseModel
 
 

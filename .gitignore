@@ -7,7 +7,7 @@ wandb/
 
 data/
 data_old/
-task_jsons/
+puzzle_jsons/
 images/
 .mypy_cache/
 node_modules/

@@ -25,18 +25,14 @@ def main() -> None:
     for template_id, puzzles in tqdm(
         grouped_templates.items(), desc="Simulation progress"
     ):
-        if not puzzles:
-            logger.info(f"No tasks found for template {template_id}")
-            continue
-
         for puzzle_doc in puzzles:
             total_puzzles += 1
             pid = puzzle_doc["id"]
-            collided, _ = simulation_manager.run_simulation(
+            goal_reached, _ = simulation_manager.run_simulation(
                 puzzle_doc, visualize=args.visualize, get_screenshot=False
             )
-            if collided:
-                logger.info(f"Collision detected for puzzle {pid}")
+            if goal_reached:
+                logger.info(f"Goal reached without proposals for puzzle {pid}")
                 solutions_found += 1
 
     db_manager.close_connection()

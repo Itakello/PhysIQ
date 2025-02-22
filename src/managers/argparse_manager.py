@@ -25,17 +25,19 @@ class ArgparseManager(BaseManager):
 
     def add_common_simulation_args(self) -> None:
         """Add common simulation-related arguments."""
+        start_template = 0
         self.parser.add_argument(
             "--start_template",
             type=int,
-            default=0,
-            help="Index of the first template to test",
+            default=start_template,
+            help=f"Index of the first template to test (default: {start_template})",
         )
+        iterations = 100
         self.parser.add_argument(
             "--iterations",
             type=int,
-            default=100,
-            help="Number of puzzle iterations to process per template",
+            default=iterations,
+            help=f"Number of puzzle iterations to process per template (default: {iterations})",
         )
         self.parser.add_argument(
             "--visualize",
