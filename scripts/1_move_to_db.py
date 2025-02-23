@@ -64,7 +64,7 @@ def main() -> None:
     db_manager = MongoDBManager(db_name=args.db_name)
 
     # Get all JSON files
-    json_files = list(input_dir.glob("*.json"))
+    json_files = sorted(list(input_dir.glob("*.json")))
     logger.info(f"Found {len(json_files)} JSON files in {input_dir}")
 
     # Process each JSON file
@@ -101,7 +101,9 @@ def main() -> None:
             metadata_data = MetadataData(**puzzle_dict["metadata"])
 
             puzzle_schema = PuzzleSchema(
-                id=puzzle_dict["id"].split(":")[0] + ":" + f"{inserted_count % 100:03}",
+                id=puzzle_dict["id"].split(":")[0]
+                + ":"
+                + f"{(inserted_count % 100):03}",
                 bodies=bodies_data,
                 relationship=relationship_data,
                 metadata=metadata_data,
