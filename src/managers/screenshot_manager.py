@@ -31,9 +31,11 @@ class ScreenshotManager(BaseManager):
             if len(screenshots) == 1:
                 path = self.images_dir / f"{filename}.png"
             else:
-                path = self.images_dir / f"{filename}_{i}.png"
+                path = self.images_dir / filename
+                path.mkdir(exist_ok=True)
+                path = path / f"{i}.png"
             screenshot.save(path)
             paths.append(path)
         if len(screenshots) == 1:
             return paths[0]
-        return self.images_dir
+        return self.images_dir / filename

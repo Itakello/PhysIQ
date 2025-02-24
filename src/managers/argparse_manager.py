@@ -106,14 +106,8 @@ class ArgparseManager(BaseManager):
                 default=output_folder,
             )
 
-    def add_proposal_args(self) -> None:
-        """Add proposal-specific arguments."""
-        self.parser.add_argument(
-            "--num_proposals",
-            type=int,
-            default=3,
-            help="How many proposals to gather for each puzzle",
-        )
+    def add_seed_args(self) -> None:
+        """Add seed argument."""
         self.parser.add_argument(
             "--seed",
             type=int,

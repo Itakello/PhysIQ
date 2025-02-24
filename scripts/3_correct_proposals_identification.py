@@ -38,10 +38,10 @@ from src.utils.const import MAX_ATTEMPTS, MAX_RADIUS, MIN_RADIUS, SCENE_DIMENSIO
 from src.utils.db_schemas import ProposalData, ProposalSchema
 
 
-def create_ball_doc(n_balls: int) -> list[dict]:
-    assert n_balls > 0
-    balls = []
-    for _ in range(n_balls):
+def create_proposal_docs(n_proposals: int) -> list[dict]:
+    assert n_proposals > 0
+    proposals = []
+    for _ in range(n_proposals):
         radius = random.uniform(MIN_RADIUS, MAX_RADIUS)
         x = random.uniform(radius, SCENE_DIMENSIONS[0] - radius)
         y = random.uniform(radius, SCENE_DIMENSIONS[1] - radius)
@@ -54,8 +54,8 @@ def create_ball_doc(n_balls: int) -> list[dict]:
             "radius": radius,
             "proposal": True,
         }
-        balls.append(ball_doc)
-    return balls
+        proposals.append(ball_doc)
+    return proposals
 
 
 def find_correct_proposals_for_puzzle(
@@ -82,7 +82,7 @@ def find_correct_proposals_for_puzzle(
     while attempts < MAX_ATTEMPTS:
         # 1) Generate random position & radius
         n_balls = 1 if puzzle_doc["metadata"]["tier"] == "BALL" else 2
-        ball_docs = create_ball_doc(n_balls=n_balls)
+        ball_docs = create_proposal_docs(n_proposals=n_balls)
 
         tmp_puzzle_doc = copy.deepcopy(puzzle_doc)
         tmp_puzzle_doc["bodies"].extend(ball_docs)
@@ -108,7 +108,7 @@ def find_correct_proposals_for_puzzle(
             if save_proposals and screenshots:
                 screenshots_path = screenshot_manager.save_screenshots(
                     screenshots,
-                    f"{puzzle_doc['id']}_good",
+                    puzzle_doc["id"].replace(":", "_"),
                 )
                 proposals = [ProposalData(**ball_doc) for ball_doc in ball_docs]
                 proposal_data = ProposalSchema(
@@ -116,7 +116,7 @@ def find_correct_proposals_for_puzzle(
                     attempt=attempts,
                     proposals=proposals,
                     image_path=screenshots_path.as_posix(),
-                    tier="GOOD",
+                    tier="CORRECT",
                 )
                 db_manager.insert_proposal(proposal_data)
             break
@@ -129,7 +129,7 @@ def main() -> None:
     )
     parser.add_common_db_args()
     parser.add_common_simulation_args()
-    parser.add_proposal_args()
+    parser.add_seed_args()
     args = parser.parse_args()
 
     # Set random seed
@@ -150,9 +150,13 @@ def main() -> None:
 
     simulation_manager = SimulationManager()
 
+    max_solutions_to_find = 100
+
     for template_id, puzzles in tqdm(
-        grouped_templates.items(), desc="Correct proposals identification progress"
+        reversed(grouped_templates.items()),
+        desc="Correct proposals identification progress",
     ):
+        solutions_found = 0
         for puzzle_doc in puzzles:
             n_attempts = find_correct_proposals_for_puzzle(
                 db_manager=db_manager,
@@ -165,6 +169,12 @@ def main() -> None:
             logger.info(
                 f"Puzzle {puzzle_doc['id']}: Found a correct proposals in {n_attempts} attempts."
             )
+            if n_attempts < MAX_ATTEMPTS:
+                solutions_found += 1
+            if solutions_found >= max_solutions_to_find:
+                break
+        max_solutions_to_find = min(max_solutions_to_find, solutions_found)
+
     db_manager.close_connection()
     logger.info("Done identifying proposals!")
 

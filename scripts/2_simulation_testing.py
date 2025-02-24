@@ -46,7 +46,9 @@ def main() -> None:
                 logger.warning(f"Goal reached without proposals for puzzle {pid}")
                 solutions_found += 1
             if args.save_to_db:
-                screen_path = screenshot_manager.save_screenshots(screenshots, pid)
+                screen_path = screenshot_manager.save_screenshots(
+                    screenshots, pid.replace(":", "_")
+                )
                 assert isinstance(screen_path, Path)
                 db_manager.set_puzzle_screenshot(pid, screen_path)
                 db_manager.set_puzzle_testability(pid, not goal_reached)

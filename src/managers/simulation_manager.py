@@ -73,14 +73,10 @@ class SimulationManager(BaseManager):
         if visualize or num_screenshots > 0:
             renderer = PygameManager()
 
-            if num_screenshots > 0:
-                renderer.render(world)
-                screenshot = ScreenshotManager.take_screenshot(renderer.screen)
-                screenshots.append(screenshot)
-
         static_counter = 0
         steps = 0
-        for steps in range(max_steps):
+
+        while steps < max_steps:
             world.Step(time_scale / fps, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
 
             # Render if needed
@@ -108,6 +104,7 @@ class SimulationManager(BaseManager):
                     break
             else:
                 static_counter = 0
+            steps += 1
 
         if renderer and num_screenshots > 1:
             renderer.render(world)

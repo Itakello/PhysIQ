@@ -47,8 +47,8 @@
                 "100",
                 "--db_name",
                 "physiq_db",
-                "--save_to_db"
-                //"--visualize",
+                //"--save_to_db"
+                "--visualize",
                 //"--debug",
             ]
         },
@@ -71,9 +71,30 @@
                 "--db_name",
                 "physiq_db",
                 "--templates_type",
-                "TEST",
+                "PHYRE",
                 //"--debug",
                 //"--visualize",
+                "--save_to_db"
+            ]
+        },
+        {
+            "name": "4 - Incorrect proposals identification",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scripts.4_incorrect_proposals_identification",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--start_template",
+                "0",
+                "--start_iteration",
+                "0",
+                "--iterations",
+                "100",
+                "--db_name",
+                "physiq_db",
+                "--visualize",
+                //"--debug",
                 //"--save_to_db"
             ]
         },

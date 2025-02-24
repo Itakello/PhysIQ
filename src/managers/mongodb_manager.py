@@ -9,7 +9,7 @@ from typing import Any
 from loguru import logger
 from pymongo import MongoClient
 
-from ..utils.db_schemas import ProposalSchema, PuzzleSchema
+from ..utils.db_schemas import ProposalData, ProposalSchema, PuzzleSchema
 from .base_manager import BaseManager
 
 
@@ -193,3 +193,10 @@ class MongoDBManager(BaseManager):
                 ]
             )
         )
+
+    def get_correct_proposal(self, puzzle_id: str) -> ProposalSchema | None:
+        """Get all correct proposals for a given puzzle."""
+        data = self._db["proposals"].find_one({"id": puzzle_id, "tier": "CORRECT"})
+        if data is None:
+            return None
+        return ProposalSchema(**data)
