@@ -38,9 +38,8 @@ def main() -> None:
 
     db_manager = MongoDBManager(db_name=args.db_name)
     proposals_stats = db_manager.get_proposals_stats()
-    db_manager.close_connection()
-
     format_and_save_stats(proposals_stats, args.save_csv, "proposals_stats")
+    db_manager.close_connection()
 
 
 if __name__ == "__main__":
