@@ -29,6 +29,7 @@ class MetadataData(BaseModel):
     description: str
     tier: str
     type: str
+    testable: bool = True
 
 
 class PuzzleSchema(BaseModel):
@@ -36,6 +37,7 @@ class PuzzleSchema(BaseModel):
     bodies: list[BodyData]
     relationship: RelationshipData
     metadata: MetadataData
+    image_path: str | None = None
 
 
 class ProposalData(BaseModel):
@@ -45,7 +47,6 @@ class ProposalData(BaseModel):
 
 class ProposalSchema(BaseModel):
     id: str
-    is_good: bool
     attempt: int
     proposals: list[ProposalData]
     image_path: str

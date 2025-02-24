@@ -1,7 +1,14 @@
+from pathlib import Path
+
 from loguru import logger
 from tqdm import tqdm
 
-from src.managers import ArgparseManager, MongoDBManager, SimulationManager
+from src.managers import (
+    ArgparseManager,
+    MongoDBManager,
+    ScreenshotManager,
+    SimulationManager,
+)
 
 
 def main() -> None:
@@ -22,6 +29,7 @@ def main() -> None:
     )
 
     simulation_manager = SimulationManager()
+    screenshot_manager = ScreenshotManager(subfolder="starting_configuration")
     total_puzzles = 0
     solutions_found = 0
 
@@ -31,12 +39,17 @@ def main() -> None:
         for puzzle_doc in puzzles:
             total_puzzles += 1
             pid = puzzle_doc["id"]
-            goal_reached, _ = simulation_manager.run_simulation(
-                puzzle_doc, visualize=args.visualize, get_screenshot=False
+            goal_reached, screenshots = simulation_manager.run_simulation(
+                puzzle_doc, visualize=args.visualize, num_screenshots=0
             )
             if goal_reached:
                 logger.warning(f"Goal reached without proposals for puzzle {pid}")
                 solutions_found += 1
+            if args.save_to_db:
+                screen_path = screenshot_manager.save_screenshots(screenshots, pid)
+                assert isinstance(screen_path, Path)
+                db_manager.set_puzzle_screenshot(pid, screen_path)
+                db_manager.set_puzzle_testability(pid, not goal_reached)
 
     db_manager.close_connection()
     logger.info("Done running simulations!")

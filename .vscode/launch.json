@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scripts.${fileBasenameNoExtension}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "0 - Extract JSONs",
             "type": "debugpy",
             "request": "launch",
@@ -40,6 +47,7 @@
                 "100",
                 "--db_name",
                 "physiq_db",
+                "--save_to_db"
                 //"--visualize",
                 //"--debug",
             ]
@@ -53,27 +61,58 @@
             "cwd": "${workspaceFolder}",
             "args": [
                 "--start_template",
-                "2",
+                "0",
+                "--start_iteration",
+                "0",
                 "--iterations",
-                "3",
+                "100",
                 "--num_proposals",
                 "1",
                 "--db_name",
                 "physiq_db",
-                "--visualize"
+                "--templates_type",
+                "TEST",
+                //"--debug",
+                //"--visualize",
                 //"--save_to_db"
             ]
         },
         {
-            "name": "Simulate test set",
+            "name": "Simulate test set [FULL]",
             "type": "debugpy",
             "request": "launch",
             "module": "scripts.2_simulation_testing",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "args": [
+                "--start_template",
+                "0",
+                "--start_iteration",
+                "0",
                 "--iterations",
-                "1",
+                "100",
+                "--db_name",
+                "physiq_db",
+                //"--visualize",
+                "--debug",
+                "--templates_type",
+                "TEST"
+            ]
+        },
+        {
+            "name": "Simulate test set [SAMPLE]",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scripts.2_simulation_testing",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--start_template",
+                "4",
+                "--start_iteration",
+                "0",
+                "--iterations",
+                "100",
                 "--db_name",
                 "physiq_db",
                 "--visualize",
@@ -82,5 +121,18 @@
                 "TEST"
             ]
         },
+        {
+            "name": "6 - Plot stats",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scripts.6_plot_stats",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--db_name",
+                "physiq_db",
+                ""
+            ]
+        }
     ]
 }

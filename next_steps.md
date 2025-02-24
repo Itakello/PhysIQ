@@ -42,11 +42,11 @@ There are two main tasks:
   - [x] Create `0_extract_jsons.py` - Extract the puzzles metadata from phyre (uses python 3.8 beacause of phyre old repository)
   - [x] Create `1_move_to_db.py` - Create the mongoDB database + move the puzzles to the DB
   - [x] Create `2_simulation_testing.py` - Simulate the puzzles using pybox2d
-  - [ ] Create `3_proposals_identification.py` - Brute-force the proposals findings by verification (x good proposals and x bad proposals) and store them in MongoDB in a new table + the images
+  - [x] Create `3_good_proposals_identification.py` - Brute-force the good proposals findings by verification and store them in MongoDB in a new table + the images
   - [ ] Create `4_offline_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
   - [ ] Create `5_online_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
-  - [ ] Create `6_create_human_interface.py` - Create a webapp and a submission module for humans evaluation
-  - [ ] Create `7_plot_results.py` - Plot the results of the experiments
+  - [ ] Create `6_plot_results.py` - Plot the results of the experiments
+  - [ ] Create `7_create_human_interface.py` - Create a webapp and a submission module for humans evaluation
   - [ ] Create `8_dataset_expansion.py` - Build in a programmatic way new templates and iterations. Take inspiration from phyre scripts.
 - [ ] 🏗️ **Refactor into modular functions**
   - [ ] Move reusable functions to utility modules

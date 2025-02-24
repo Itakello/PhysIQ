@@ -121,6 +121,12 @@ class ArgparseManager(BaseManager):
             help="Random seed for reproducible position/radius generation",
         )
 
+    def add_stats_args(self) -> None:
+        """Add statistics-related arguments."""
+        self.parser.add_argument(
+            "--save-csv", action="store_true", help="Save results as CSV"
+        )
+
     def parse_args(self) -> argparse.Namespace:
         """Parse command line arguments and configure logging level."""
         args = self.parser.parse_args()

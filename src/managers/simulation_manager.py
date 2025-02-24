@@ -1,99 +1,29 @@
-from collections import deque
 from dataclasses import dataclass
 
-import numpy as np
-import pygame
-from Box2D import b2_staticBody, b2Contact, b2ContactListener, b2World
+from Box2D import b2_staticBody, b2World
 from loguru import logger
 from PIL import Image
 
-from ..classes.shapes import create_pybox2d_body
+from ..utils.collision_listener import CollisionListener
 from ..utils.const import (
-    COLLISION_WINDOW_SIZE,
     DEFAULT_Y_GRAVITY,
     FPS,
     FRAMES_FOR_STATIC_EARLY_STOP,
     MAX_STEPS,
     POSITION_ITERATIONS,
-    REQUIRED_COLLISIONS,
     STOP_VELOCITY_THRESHOLD,
     TIME_SCALE,
     VELOCITY_ITERATIONS,
 )
 from .base_manager import BaseManager
 from .pygame_manager import PygameManager
-
-
-class CollisionListener(b2ContactListener):
-    """
-    Custom collision listener that records collision frequency between target bodies
-    within a sliding window of frames.
-    """
-
-    def __init__(
-        self,
-        window_size: int = COLLISION_WINDOW_SIZE,
-        required_collisions: int = REQUIRED_COLLISIONS,
-    ) -> None:
-        super().__init__()
-        self.goal_reached = False
-        self.current_frame = 0
-        self.window_size = window_size
-        self.required_collisions = required_collisions
-        self.collision_history = deque([False] * window_size, maxlen=window_size)
-        self.is_colliding = False
-        self.max_collisions = 0
-
-    def BeginContact(self, contact: b2Contact) -> None:
-        """Record when target bodies start colliding."""
-        fA = contact.fixtureA
-        fB = contact.fixtureB
-
-        if fA.userData is None or fB.userData is None:
-            return
-
-        bodyA_id = fA.userData.get("body_id")
-        bodyB_id = fB.userData.get("body_id")
-
-        if bodyA_id is not None and bodyB_id is not None:
-            if fA.userData.get("target") and fB.userData.get("target"):
-                self.is_colliding = True
-
-    def EndContact(self, contact: b2Contact) -> None:
-        """Record when target bodies stop colliding."""
-        fA = contact.fixtureA
-        fB = contact.fixtureB
-
-        if fA.userData is None or fB.userData is None:
-            return
-
-        bodyA_id = fA.userData.get("body_id")
-        bodyB_id = fB.userData.get("body_id")
-
-        if bodyA_id is not None and bodyB_id is not None:
-            if fA.userData.get("target") and fB.userData.get("target"):
-                self.is_colliding = False
-
-    def update(self) -> None:
-        """
-        Update collision history and check if collision frequency
-        meets the threshold within the sliding window.
-        """
-        self.current_frame += 1
-        self.collision_history.append(self.is_colliding)
-
-        # Count collisions in the sliding window
-        collisions_in_window = sum(1 for frame in self.collision_history if frame)
-        self.max_collisions = max(self.max_collisions, collisions_in_window)
-        if collisions_in_window >= self.required_collisions:
-            self.goal_reached = True
+from .screenshot_manager import ScreenshotManager
+from .shapes_manager import ShapesManager
 
 
 @dataclass
 class SimulationManager(BaseManager):
-    """
-    Simulation Manager based on PyMunk.
-    """
+    shapes_manager: ShapesManager = ShapesManager()
 
     def _is_world_static(
         self, world: b2World, stop_velocity_threshold: float = STOP_VELOCITY_THRESHOLD
@@ -113,24 +43,23 @@ class SimulationManager(BaseManager):
         self,
         puzzle: dict,
         visualize: bool = False,
-        get_screenshot: bool = False,
+        num_screenshots: int = 0,
         y_gravity: float = DEFAULT_Y_GRAVITY,
         max_steps: int = MAX_STEPS,
         time_scale: float = TIME_SCALE,
         fps: int = FPS,
-    ) -> tuple[bool, Image.Image | None]:
-        logger.debug(f"Running simulation for puzzle: {puzzle['id']}")
+    ) -> tuple[bool, list[Image.Image]]:
+        # logger.debug(f"Running simulation for puzzle: {puzzle['id']}")
         world = b2World(gravity=(0, -y_gravity), doSleep=True)
 
-        collision_listener = CollisionListener()
-        world.contactListener = collision_listener
+        world.contactListener = CollisionListener()
 
         for idx, body_data in enumerate(puzzle["bodies"]):
             is_target = (idx == puzzle["relationship"]["bodyId1"]) or (
                 idx == puzzle["relationship"]["bodyId2"]
             )
-            check_overlapping = body_data.get("proposal", False)  # same logic as before
-            create_pybox2d_body(
+            check_overlapping = body_data.get("proposal", False)
+            self.shapes_manager.create_body(
                 world,
                 body_data,
                 body_index=idx,
@@ -139,25 +68,31 @@ class SimulationManager(BaseManager):
             )
 
         renderer = None
-        screenshot = None
-        if visualize or get_screenshot:
+        screenshots = []
+
+        if visualize or num_screenshots > 0:
             renderer = PygameManager()
 
-            if get_screenshot:
+            if num_screenshots > 0:
                 renderer.render(world)
-                arr = pygame.surfarray.array3d(renderer.screen)
-                arr = np.transpose(arr, (1, 0, 2))
-                screenshot = Image.fromarray(arr)
+                screenshot = ScreenshotManager.take_screenshot(renderer.screen)
+                screenshots.append(screenshot)
 
         static_counter = 0
-        for _ in range(max_steps):
+        steps = 0
+        for steps in range(max_steps):
             world.Step(time_scale / fps, VELOCITY_ITERATIONS, POSITION_ITERATIONS)
 
             # Render if needed
-            if visualize and renderer:
-                keep_going = renderer.render(world)
-                if not keep_going:
-                    break  # user closed window
+            if renderer:
+                if visualize:
+                    keep_going = renderer.render(world)
+                    if not keep_going:
+                        break  # user closed window
+                if num_screenshots > 2 and steps % 60 == 0:
+                    renderer.render(world)
+                    screenshot = ScreenshotManager.take_screenshot(renderer.screen)
+                    screenshots.append(screenshot)
 
             world.contactListener.update()
 
@@ -174,11 +109,19 @@ class SimulationManager(BaseManager):
             else:
                 static_counter = 0
 
+        if renderer and num_screenshots > 1:
+            renderer.render(world)
+            screenshot = ScreenshotManager.take_screenshot(renderer.screen)
+            screenshots.append(screenshot)
+
         if renderer:
             renderer.quit()
 
-        if collision_listener.max_collisions > 0:
+        if (
+            world.contactListener.collision_count
+            > 0  # world.contactListener.required_collisions / 2
+        ):
             logger.debug(
-                f"Simulation completed. Max collisions: {collision_listener.max_collisions}"
+                f"Simulation {puzzle['id']} completed. Max collisions: {world.contactListener.collision_count}"
             )
-        return world.contactListener.goal_reached, screenshot
+        return world.contactListener.goal_reached, screenshots
