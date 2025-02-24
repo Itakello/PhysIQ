@@ -9,7 +9,7 @@ from typing import Any
 from loguru import logger
 from pymongo import MongoClient
 
-from ..utils.db_schemas import ProposalData, ProposalSchema, PuzzleSchema
+from ..utils.db_schemas import ProposalSchema, PuzzleSchema
 from .base_manager import BaseManager
 
 
