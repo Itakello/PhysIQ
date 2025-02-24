@@ -40,7 +40,7 @@ def main() -> None:
             total_puzzles += 1
             pid = puzzle_doc["id"]
             goal_reached, screenshots = simulation_manager.run_simulation(
-                puzzle_doc, visualize=args.visualize, num_screenshots=0
+                puzzle_doc, visualize=args.visualize, num_screenshots=1
             )
             if goal_reached:
                 logger.warning(f"Goal reached without proposals for puzzle {pid}")

@@ -91,7 +91,7 @@ class MongoDBManager(BaseManager):
         """
         filter = {"metadata.type": type}
         if only_testable:
-            filter["metadata.testable"] = True
+            filter["metadata.testable"] = True  # type: ignore
         all_puzzles = list(self._db["puzzles"].find(filter))
         # Sort by puzzle_id => parse_template_id
         all_puzzles.sort(key=lambda p: parse_puzzle_id(p["id"]))
