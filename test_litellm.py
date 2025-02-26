@@ -1,14 +1,8 @@
 import base64
-import os
 from typing import cast
 
 import litellm
 from litellm.types.utils import ModelResponse
-
-# Set your API key (replace with your actual key)
-os.environ["OPENAI_API_KEY"] = (
-    "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"
-)
 
 # Read and encode the local image file in base64
 with open("a.png", "rb") as f:

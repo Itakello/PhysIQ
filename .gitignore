@@ -1,6 +1,17 @@
+# Environment variables
+*.env
+api_key.env
+
+# Other common files to ignore
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 .env
+.venv
+env/
+venv/
+ENV/
+
 logs/
 wandb/
 .cursorrules
@@ -9,3 +20,5 @@ puzzle_jsons/
 images/
 .mypy_cache/
 node_modules/
+
+db_backup/

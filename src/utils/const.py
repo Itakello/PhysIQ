@@ -32,14 +32,12 @@ KINEMATIC_BODY = 2
 # Common color references
 COLORS = {
     0: "red",
-    1: "green",
-    2: "blue",
-    3: "purple",
-    4: "yellow",
-    5: "cyan",
-    6: "grey",
-    7: "black",
-    8: "white",
+    1: "black",
+    2: "green",
+    3: "azure",
+    4: "purple",
+    5: "grey",
+    6: "black",
 }
 
 # Shape types
@@ -68,3 +66,4 @@ MAX_BODIES_TO_DESCRIBE = 5
 PROMPT_DIRECT = "direct"
 PROMPT_DETAILED = "detailed"
 PROMPT_COT = "cot"  # Chain of Thought
+PROMPT_SANITY_CHECK = "sanity_check"

@@ -101,47 +101,26 @@
             ]
         },
         {
-            "name": "Simulate test set [FULL]",
+            "name": "5- Non interactive evaluation",
             "type": "debugpy",
             "request": "launch",
-            "module": "scripts.2_simulation_testing",
+            "module": "scripts.5_non_interactive_evaluation",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "args": [
-                "--start_template",
-                "0",
-                "--start_iteration",
-                "0",
-                "--iterations",
-                "100",
+                //"--start_template",
+                //"16",
+                //"--stop_template",
+                //"16",
+                //"--start_iteration",
+                //"20",
+                //"--iterations",
+                //"2",
                 "--db_name",
                 "physiq_db",
                 //"--visualize",
-                "--debug",
-                "--templates_type",
-                "TEST"
-            ]
-        },
-        {
-            "name": "Simulate test set [SAMPLE]",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "scripts.2_simulation_testing",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "--start_template",
-                "4",
-                "--start_iteration",
-                "0",
-                "--iterations",
-                "100",
-                "--db_name",
-                "physiq_db",
-                "--visualize",
-                "--debug",
-                "--templates_type",
-                "TEST"
+                //"--debug",
+                //"--save_to_db"
             ]
         },
         {

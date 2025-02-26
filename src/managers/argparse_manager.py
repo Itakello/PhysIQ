@@ -128,6 +128,26 @@ class ArgparseManager(BaseManager):
             "--save-csv", action="store_true", help="Save results as CSV"
         )
 
+    def add_model_args(self, default_model: str = "openai/gpt-4o") -> None:
+        """Add VLM model selection argument.
+
+        Args:
+            default_model: Default model to use if not specified
+        """
+        self.parser.add_argument(
+            "--vlm",
+            type=str,
+            default=default_model,
+            choices=[
+                "openai/gpt-4o",
+                "anthropic/claude-3-5-sonnet",
+                "deepseek/deepseek-chat",
+                "gemini-2.0-flash",
+                "xai/grok-2-latest",
+            ],
+            help=f"VLM model to use (default: {default_model})",
+        )
+
     def parse_args(self) -> argparse.Namespace:
         """Parse command line arguments and configure logging level."""
         args = self.parser.parse_args()

@@ -53,7 +53,7 @@ class DatasetManager:
             A SampleData object containing the puzzle, proposal, images and optional few-shot examples.
         """
         # 1) Retrieve puzzle:
-        puzzle = self.db_manager.db["puzzles"].find_one({"id": puzzle_id})
+        puzzle = self.db_manager.get_puzzle_by_id(puzzle_id)
         if not puzzle:
             raise ValueError(f"No puzzle found with id={puzzle_id}")
 
@@ -69,10 +69,10 @@ class DatasetManager:
         # 3) Locate screenshot images (path could be a file or a directory)
         images_list = self._retrieve_images(proposal.get("image_path"), num_frames)
 
-        # 4) Optionally retrieve few-shot exemplars
+        # 4) Optionally retrieve few-shot exemplars, excluding the current puzzle
         few_shot_samples = []
         if few_shot_count > 0:
-            few_shot_samples = self._get_few_shot_samples(few_shot_count)
+            few_shot_samples = self._get_few_shot_samples(few_shot_count, puzzle_id)
 
         return SampleData(
             puzzle=PuzzleSchema(**puzzle),
@@ -153,39 +153,65 @@ class DatasetManager:
         indices = [int(round(i * step)) for i in range(num_frames)]
         return indices
 
-    def _get_few_shot_samples(self, few_shot_count: int) -> list[FewShotData]:
+    def _get_few_shot_samples(
+        self, few_shot_count: int, current_puzzle_id: str = None
+    ) -> list[FewShotData]:
         """
         Retrieve a random selection of puzzle+proposal+images for few-shot usage.
-        For example, half can be correct, half incorrect. Adjust logic as needed.
+        Ensures a mix of correct and incorrect examples, excluding the current puzzle.
+
+        Args:
+            few_shot_count: Number of few-shot examples to retrieve
+            current_puzzle_id: ID of the current puzzle to exclude from examples
+
+        Returns:
+            List of FewShotData objects
         """
-        # We'll do a naive approach: gather some random correct and incorrect from the DB.
-        # Suppose we want half correct, half incorrect if possible.
+        if few_shot_count <= 0:
+            return []
+
+        # Make sure we have both CORRECT and INCORRECT examples
         half = few_shot_count // 2
         remainder = few_shot_count - half
-        # Grab some CORRECT
-        correct_cursor = self.db_manager.db["proposals"].aggregate(
-            [{"$match": {"tier": "CORRECT"}}, {"$sample": {"size": half}}]
-        )
-        # Grab some INCORRECT (just pick one type for demonstration)
-        incorrect_cursor = self.db_manager.db["proposals"].aggregate(
-            [
-                {"$match": {"tier": {"$regex": "INCORRECT"}}},
-                {"$sample": {"size": remainder}},
-            ]
-        )
 
-        all_docs = list(correct_cursor) + list(incorrect_cursor)
+        all_docs = []
+
+        # Build the base exclusion filter
+        base_filter = {}
+        if current_puzzle_id:
+            base_filter = {"id": {"$ne": current_puzzle_id}}
+
+        # Grab CORRECT examples (typically "Yes" answers)
+        if half > 0:
+            correct_filter = {"tier": "CORRECT"}
+            correct_filter.update(base_filter)
+
+            correct_cursor = self.db_manager.db["proposals"].aggregate(
+                [{"$match": correct_filter}, {"$sample": {"size": half}}]
+            )
+            all_docs.extend(list(correct_cursor))
+
+        # Grab INCORRECT examples (typically "No" answers)
+        if remainder > 0:
+            incorrect_filter = {"tier": {"$regex": "^INCORRECT"}}
+            incorrect_filter.update(base_filter)
+
+            incorrect_cursor = self.db_manager.db["proposals"].aggregate(
+                [{"$match": incorrect_filter}, {"$sample": {"size": remainder}}]
+            )
+            all_docs.extend(list(incorrect_cursor))
+
         random.shuffle(all_docs)
 
         few_shot_data = []
         for doc in all_docs:
             puzzle_id = doc["id"]
-            puzzle_doc = self.db_manager.db["puzzles"].find_one(
-                {"id": puzzle_id, "metadata.type": "PHYRE"}
-            )
-            images = self._retrieve_images(
-                doc["image_path"], self.examples_num_frames
-            )  # Keep it short
+            puzzle_doc = self.db_manager.db["puzzles"].find_one({"id": puzzle_id})
+            if not puzzle_doc:
+                logger.warning(f"Could not find puzzle with ID {puzzle_id}")
+                continue
+
+            images = self._retrieve_images(doc["image_path"], self.examples_num_frames)
             few_shot_data.append(
                 FewShotData(
                     puzzle=PuzzleSchema(**puzzle_doc),
