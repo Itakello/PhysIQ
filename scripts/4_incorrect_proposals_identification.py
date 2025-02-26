@@ -32,7 +32,7 @@ from src.managers import (
     ScreenshotManager,
     SimulationManager,
 )
-from src.utils.const import MAX_ATTEMPTS, SCENE_DIMENSIONS
+from src.utils.const import MAX_ATTEMPTS, MAX_RADIUS, MIN_RADIUS, SCENE_DIMENSIONS
 from src.utils.db_schemas import ProposalData, ProposalSchema
 
 
@@ -92,13 +92,17 @@ def create_proposals_docs(proposals: list[ProposalData], difficulty: str) -> lis
             min_radius,
             max_radius,
         )
+        new_radius = random.uniform(
+            max(MIN_RADIUS, proposal.radius / 2),
+            min(MAX_RADIUS, proposal.radius * 2),
+        )
         proposal_doc = {
             "body_type": 1,
             "position": new_position,
             "angle": 0.0,
             "color": 0,
             "shape_type": 1,
-            "radius": proposal.radius,
+            "radius": new_radius,
             "proposal": True,
         }
         new_proposals.append(proposal_doc)
@@ -130,7 +134,7 @@ def find_incorrect_proposals(
 
         try:
             goal_reached, _ = simulation_manager.run_simulation(
-                puzzle=tmp_puzzle_doc, visualize=visualize, num_screenshots=0
+                puzzle=tmp_puzzle_doc, visualize=False, num_screenshots=0
             )
         except ValueError:
             continue
@@ -188,6 +192,7 @@ def main() -> None:
     grouped_templates = db_manager.get_grouped_templates(
         start_template=args.start_template,
         start_iteration=args.start_iteration,
+        stop_template=args.stop_template,
         iterations=args.iterations,
         type=args.templates_type,
         only_testable=True,

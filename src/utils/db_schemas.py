@@ -51,3 +51,16 @@ class ProposalSchema(BaseModel):
     proposals: list[ProposalData]
     image_path: str
     tier: str
+
+
+class FewShotData(BaseModel):
+    puzzle: PuzzleSchema
+    proposal: ProposalSchema
+    images: list[str]
+
+
+class SampleData(BaseModel):
+    puzzle: PuzzleSchema
+    proposal: ProposalSchema
+    images: list[str]
+    few_shot: list[FewShotData] | None = None

@@ -140,6 +140,7 @@ def main() -> None:
 
     grouped_templates = db_manager.get_grouped_templates(
         start_template=args.start_template,
+        stop_template=args.stop_template,
         start_iteration=args.start_iteration,
         iterations=args.iterations,
         type=args.templates_type,
@@ -150,7 +151,7 @@ def main() -> None:
 
     simulation_manager = SimulationManager()
 
-    max_solutions_to_find = 100
+    max_solutions_to_find = 20
 
     for template_id, puzzles in tqdm(
         reversed(grouped_templates.items()),

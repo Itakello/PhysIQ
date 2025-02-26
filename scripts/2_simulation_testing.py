@@ -24,6 +24,7 @@ def main() -> None:
     grouped_templates = db_manager.get_grouped_templates(
         start_template=args.start_template,
         start_iteration=args.start_iteration,
+        stop_template=args.stop_template,
         iterations=args.iterations,
         type=args.templates_type,
     )

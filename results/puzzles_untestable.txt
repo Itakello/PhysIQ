@@ -1,15 +1,12 @@
-00004:022
+Number of PHYRE puzzles:
+5000
+Number of testable PHYRE puzzles:
+4995
+IDs of non-testable PHYRE puzzles:
 00004:071
-00007:091
-00011:003
-00011:036
 00011:055
 00012:060
 00012:088
-00013:061
-00013:089
-00013:094
 00016:004
-00016:008
 
-Total: 13
+Number of proposals for each puzzle: 20 -> because in 123 found 21, and 124 33 + avoid having too many proposals for evaluation

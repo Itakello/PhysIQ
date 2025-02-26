@@ -4,6 +4,8 @@ from typing import Any
 
 from loguru import logger
 
+from src.utils.db_schemas import FewShotData, ProposalSchema, PuzzleSchema, SampleData
+
 from .mongodb_manager import MongoDBManager
 
 
@@ -17,8 +19,9 @@ class DatasetManager:
     def __init__(
         self,
         db_manager: MongoDBManager,
+        examples_num_frames: int = 2,
         images_base_dir: str | Path = "images",
-    ):
+    ) -> None:
         """
         Args:
             db_manager: Instance of MongoDBManager.
@@ -26,15 +29,16 @@ class DatasetManager:
                              e.g. "images/" containing "correct_proposals/" etc.
         """
         self.db_manager = db_manager
+        self.examples_num_frames = examples_num_frames
         self.images_base_dir = Path(images_base_dir)
 
     def get_sample(
         self,
         puzzle_id: str,
-        proposal_tier: str = "CORRECT",
-        num_frames: int = 2,
+        num_frames: int,
+        proposal_tier: str,
         few_shot_count: int = 0,
-    ) -> dict[str, Any]:
+    ) -> SampleData:
         """
         Retrieve a single puzzle + proposal and (optionally) a few-shot list of additional puzzles.
 
@@ -46,13 +50,7 @@ class DatasetManager:
             few_shot_count: 0 (no few-shot) or e.g. 2 or 4, indicating how many exemplars to pull.
 
         Returns:
-            A dictionary with:
-              {
-                  "puzzle": <PuzzleSchema as dict>,
-                  "proposal": <ProposalSchema as dict>,
-                  "images": [list of image paths (str)],
-                  "few_shot": [ { puzzle+proposal+images }, ... ]  # optional
-              }
+            A SampleData object containing the puzzle, proposal, images and optional few-shot examples.
         """
         # 1) Retrieve puzzle:
         puzzle = self.db_manager.db["puzzles"].find_one({"id": puzzle_id})
@@ -74,17 +72,14 @@ class DatasetManager:
         # 4) Optionally retrieve few-shot exemplars
         few_shot_samples = []
         if few_shot_count > 0:
-            # In real usage, you'd define logic for how you pick "few_shot_count" examples.
-            # For example, random selection among proposals or a small curated set.
-            # We demonstrate a random approach here, but you can refine as needed.
             few_shot_samples = self._get_few_shot_samples(few_shot_count)
 
-        return {
-            "puzzle": puzzle,
-            "proposal": proposal,
-            "images": images_list,
-            "few_shot": few_shot_samples,
-        }
+        return SampleData(
+            puzzle=PuzzleSchema(**puzzle),
+            proposal=ProposalSchema(**proposal),
+            images=images_list,
+            few_shot=few_shot_samples,
+        )
 
     def _retrieve_images(self, image_path: str, num_frames: int) -> list[str]:
         """
@@ -130,6 +125,7 @@ class DatasetManager:
 
         # Otherwise, pick frames from start, middle, end
         indices = self._compute_frame_indices(len(all_images), num_frames)
+        all_images = sorted(all_images, key=lambda x: int(x.stem))
         selected = [all_images[i] for i in indices]
         return [str(s) for s in selected]
 
@@ -157,7 +153,7 @@ class DatasetManager:
         indices = [int(round(i * step)) for i in range(num_frames)]
         return indices
 
-    def _get_few_shot_samples(self, few_shot_count: int) -> list[dict[str, Any]]:
+    def _get_few_shot_samples(self, few_shot_count: int) -> list[FewShotData]:
         """
         Retrieve a random selection of puzzle+proposal+images for few-shot usage.
         For example, half can be correct, half incorrect. Adjust logic as needed.
@@ -184,16 +180,18 @@ class DatasetManager:
         few_shot_data = []
         for doc in all_docs:
             puzzle_id = doc["id"]
-            puzzle_doc = self.db_manager.db["puzzles"].find_one({"id": puzzle_id})
+            puzzle_doc = self.db_manager.db["puzzles"].find_one(
+                {"id": puzzle_id, "metadata.type": "PHYRE"}
+            )
             images = self._retrieve_images(
-                doc["image_path"], num_frames=2
+                doc["image_path"], self.examples_num_frames
             )  # Keep it short
             few_shot_data.append(
-                {
-                    "puzzle": puzzle_doc,
-                    "proposal": doc,
-                    "images": images,
-                }
+                FewShotData(
+                    puzzle=PuzzleSchema(**puzzle_doc),
+                    proposal=ProposalSchema(**doc),
+                    images=images,
+                )
             )
 
         return few_shot_data

@@ -75,6 +75,7 @@ class MongoDBManager(BaseManager):
     def get_grouped_templates(
         self,
         start_template: int,
+        stop_template: int,
         start_iteration: int,
         iterations: int,
         type: str = "PHYRE",
@@ -99,7 +100,7 @@ class MongoDBManager(BaseManager):
         grouped = {}
         for p in all_puzzles:
             t_id, i_id = parse_puzzle_id(p["id"])
-            if t_id < start_template:
+            if t_id < start_template or t_id > stop_template:
                 continue
             grouped.setdefault(t_id, []).append(p)
 

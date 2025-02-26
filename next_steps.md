@@ -34,6 +34,16 @@ There are two main tasks:
       3. The ground truth (for Task 1 only; Task 2 will be programmatically evaluated)
    2. Targeted having 5 good/bad solutions per iteration.
 
+## Prompt Templates
+
+Three prompt types have been created to test LLMs with varying levels of detail:
+
+1. **Direct**: Concise prompts focused on the core prediction task with minimal context
+2. **Detailed**: Comprehensive prompts with additional simulation context and rules
+3. **Detailed with CoT**: Similar to detailed but explicitly guiding chain-of-thought reasoning
+
+These prompt templates can be used as baselines for benchmarking LLM physical reasoning capabilities.
+
 ## ✅ PhysIQ To-Do List with Subtasks
 
 #### **1️⃣ Refactor the Codebase**
@@ -128,3 +138,9 @@ There are two main tasks:
 - [ ] 📑 **Write the final report** (structured, concise, and formal)
 - [ ] 📖 **Expand the report into the thesis**
   - [ ] Include background, methodology, results, and conclusions
+
+## Next Steps
+
+1. Implement evaluation metrics for measuring LLM performance
+2. Create automated testing for comparing different prompt strategies
+3. Develop interactive mode for Task 2

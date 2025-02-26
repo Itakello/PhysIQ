@@ -71,6 +71,13 @@ class ArgparseManager(BaseManager):
             default=start_iteration,
             help=f"Index of the first iteration to test (default: {start_iteration})",
         )
+        stop_template = 124
+        self.parser.add_argument(
+            "--stop_template",
+            type=int,
+            default=stop_template,
+            help=f"Index of the last template to test (default: {stop_template})",
+        )
         iterations = 100
         self.parser.add_argument(
             "--iterations",

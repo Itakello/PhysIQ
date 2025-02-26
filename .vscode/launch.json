@@ -93,9 +93,9 @@
                 "100",
                 "--db_name",
                 "physiq_db",
-                "--visualize",
+                //"--visualize",
                 //"--debug",
-                //"--save_to_db"
+                "--save_to_db"
             ]
         },
         {
@@ -154,6 +154,15 @@
                 "physiq_db",
                 ""
             ]
+        },
+        {
+            "name": "Test",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "test",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": []
         }
     ]
 }

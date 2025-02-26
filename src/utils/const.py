@@ -23,3 +23,48 @@ POSITION_ITERATIONS = 10
 MIN_RADIUS = 2
 MAX_RADIUS = SCENE_DIMENSIONS[1] // 8
 MAX_ATTEMPTS = 10000
+
+# Body types
+STATIC_BODY = 0
+DYNAMIC_BODY = 1
+KINEMATIC_BODY = 2
+
+# Common color references
+COLORS = {
+    0: "red",
+    1: "green",
+    2: "blue",
+    3: "purple",
+    4: "yellow",
+    5: "cyan",
+    6: "grey",
+    7: "black",
+    8: "white",
+}
+
+# Shape types
+POLYGON = 0
+CIRCLE = 1
+EDGE = 2
+CUSTOM = 3
+
+# Relationship types
+RELATIONSHIP_CONTACT = 0  # Objects in contact
+RELATIONSHIP_DISTANCE = 1  # Distance between objects
+RELATIONSHIP_ORIENTATION = 2  # Relative orientation
+
+# Key object types for prompt formatting
+TARGET_OBJECTS = {
+    "BALL": "ball",
+    "RECTANGLE": "rectangle",
+    "TRIANGLE": "triangle",
+    "PLATFORM": "platform",
+}
+
+# Maximum number of bodies to include in detailed description
+MAX_BODIES_TO_DESCRIBE = 5
+
+# Prompt variants
+PROMPT_DIRECT = "direct"
+PROMPT_DETAILED = "detailed"
+PROMPT_COT = "cot"  # Chain of Thought
