@@ -124,6 +124,7 @@ def find_incorrect_proposals(
     pbar = tqdm(
         total=MAX_ATTEMPTS,
         desc=f"Puzzle {puzzle_doc['id']} - {difficulty}",
+        leave=False,
     )
 
     while attempts < MAX_ATTEMPTS:
@@ -165,6 +166,7 @@ def find_incorrect_proposals(
                 db_manager.insert_proposal(proposal_data)
             break
 
+    pbar.close()
     return attempts
 
 
@@ -189,39 +191,46 @@ def main() -> None:
         "HARD": ScreenshotManager(subfolder="incorrect_proposals_hard"),
     }
 
-    grouped_templates = db_manager.get_grouped_templates(
+    # First, retrieve all correct proposals
+    correct_proposals = db_manager.get_all_correct_proposals(
         start_template=args.start_template,
-        start_iteration=args.start_iteration,
         stop_template=args.stop_template,
-        iterations=args.iterations,
         type=args.templates_type,
-        only_testable=True,
     )
 
-    for template_id, puzzles in tqdm(
-        reversed(grouped_templates.items()),
-        desc="Incorrect proposals identification progress",
-    ):
-        for puzzle_doc in puzzles:
-            # Skip if no correct proposals exist
-            correct_proposal = db_manager.get_correct_proposal(puzzle_doc["id"])
-            if not correct_proposal:
-                continue
+    logger.info(f"Found {len(correct_proposals)} correct proposals to process")
 
-            for difficulty in ["EASY", "MEDIUM", "HARD"]:
-                n_attempts = find_incorrect_proposals(
-                    db_manager=db_manager,
-                    simulation_manager=simulation_manager,
-                    screenshot_manager=screenshot_managers[difficulty],
-                    puzzle_doc=puzzle_doc,
-                    correct_proposal=correct_proposal,
-                    difficulty=difficulty,
-                    visualize=args.visualize,
-                    save_proposals=args.save_to_db,
-                )
-                logger.info(
-                    f"Puzzle {puzzle_doc['id']}: Found {difficulty} incorrect proposal in {n_attempts} attempts."
-                )
+    # Process each correct proposal to find incorrect proposals
+    for correct_proposal in tqdm(
+        correct_proposals,
+        desc="Processing correct proposals",
+        total=len(correct_proposals),
+    ):
+        puzzle_id = correct_proposal.id
+        puzzle_doc = db_manager.get_puzzle_by_id(puzzle_id)
+
+        if not puzzle_doc:
+            logger.warning(f"Puzzle not found for proposal {puzzle_id}, skipping")
+            continue
+
+        if not puzzle_doc.get("metadata", {}).get("testable", True):
+            logger.debug(f"Puzzle {puzzle_id} is not testable, skipping")
+            continue
+
+        for difficulty in ["EASY", "MEDIUM", "HARD"]:
+            n_attempts = find_incorrect_proposals(
+                db_manager=db_manager,
+                simulation_manager=simulation_manager,
+                screenshot_manager=screenshot_managers[difficulty],
+                puzzle_doc=puzzle_doc,
+                correct_proposal=correct_proposal,
+                difficulty=difficulty,
+                visualize=args.visualize,
+                save_proposals=args.save_to_db,
+            )
+            logger.debug(
+                f"Puzzle {puzzle_id}: Found {difficulty} incorrect proposal in {n_attempts} attempts."
+            )
 
     db_manager.close_connection()
     logger.info("Done identifying incorrect proposals!")

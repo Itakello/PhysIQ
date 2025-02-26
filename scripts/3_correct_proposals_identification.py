@@ -168,7 +168,7 @@ def main() -> None:
                 save_proposals=args.save_to_db,
             )
             logger.info(
-                f"Puzzle {puzzle_doc['id']}: Found a correct proposals in {n_attempts} attempts."
+                f"Puzzle {puzzle_doc['id']}: Found a correct proposal in {n_attempts} attempts."
             )
             if n_attempts < MAX_ATTEMPTS:
                 solutions_found += 1

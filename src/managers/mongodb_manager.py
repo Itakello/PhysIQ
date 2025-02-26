@@ -201,3 +201,48 @@ class MongoDBManager(BaseManager):
         if data is None:
             return None
         return ProposalSchema(**data)
+
+    def get_all_correct_proposals(
+        self, start_template: int = 0, stop_template: int = 1000, type: str = "PHYRE"
+    ) -> list[ProposalSchema]:
+        """
+        Retrieve all correct proposals from the database, filtering by template range.
+
+        Args:
+            start_template: The template ID to start from
+            stop_template: The template ID to end at
+            type: The puzzle type to filter by (defaults to "PHYRE")
+
+        Returns:
+            List of correct proposal schemas
+        """
+        filter = {"tier": "CORRECT"}
+
+        # Get all correct proposals
+        correct_proposals = []
+        cursor = self._db["proposals"].find(filter)
+
+        for proposal_doc in cursor:
+            puzzle_id = proposal_doc["id"]
+            template_id, _ = parse_puzzle_id(puzzle_id)
+
+            # Filter by template range
+            if template_id < start_template or template_id > stop_template:
+                continue
+
+            # Create ProposalSchema from document
+            correct_proposals.append(ProposalSchema(**proposal_doc))
+
+        return correct_proposals
+
+    def get_puzzle_by_id(self, puzzle_id: str) -> dict | None:
+        """
+        Get a puzzle by its ID.
+
+        Args:
+            puzzle_id: The puzzle ID
+
+        Returns:
+            The puzzle document if found, None otherwise
+        """
+        return self._db["puzzles"].find_one({"id": puzzle_id})
