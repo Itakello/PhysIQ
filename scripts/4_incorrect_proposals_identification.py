@@ -195,6 +195,7 @@ def main() -> None:
     correct_proposals = db_manager.get_all_correct_proposals(
         start_template=args.start_template,
         stop_template=args.stop_template,
+        start_iteration=args.start_iteration,
         type=args.templates_type,
     )
 

@@ -203,7 +203,11 @@ class MongoDBManager(BaseManager):
         return ProposalSchema(**data)
 
     def get_all_correct_proposals(
-        self, start_template: int = 0, stop_template: int = 1000, type: str = "PHYRE"
+        self,
+        start_template: int = 0,
+        stop_template: int = 1000,
+        start_iteration: int = 0,
+        type: str = "PHYRE",
     ) -> list[ProposalSchema]:
         """
         Retrieve all correct proposals from the database, filtering by template range.
@@ -220,14 +224,18 @@ class MongoDBManager(BaseManager):
 
         # Get all correct proposals
         correct_proposals = []
-        cursor = self._db["proposals"].find(filter)
+        cursor = self._db["proposals"].find(filter).sort("id")
 
         for proposal_doc in cursor:
             puzzle_id = proposal_doc["id"]
-            template_id, _ = parse_puzzle_id(puzzle_id)
+            template_id, iteration_id = parse_puzzle_id(puzzle_id)
 
             # Filter by template range
-            if template_id < start_template or template_id > stop_template:
+            if (
+                template_id < start_template
+                or template_id > stop_template
+                or iteration_id < start_iteration
+            ):
                 continue
 
             # Create ProposalSchema from document
