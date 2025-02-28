@@ -195,9 +195,11 @@ class MongoDBManager(BaseManager):
             )
         )
 
-    def get_correct_proposal(self, puzzle_id: str) -> ProposalSchema | None:
+    def get_proposal(
+        self, puzzle_id: str, tier: str = "CORRECT"
+    ) -> ProposalSchema | None:
         """Get all correct proposals for a given puzzle."""
-        data = self._db["proposals"].find_one({"id": puzzle_id, "tier": "CORRECT"})
+        data = self._db["proposals"].find_one({"id": puzzle_id, "tier": tier})
         if data is None:
             return None
         return ProposalSchema(**data)
@@ -243,7 +245,7 @@ class MongoDBManager(BaseManager):
 
         return correct_proposals
 
-    def get_puzzle_by_id(self, puzzle_id: str) -> dict | None:
+    def get_puzzle_by_id(self, puzzle_id: str) -> PuzzleSchema | None:
         """
         Get a puzzle by its ID.
 
@@ -253,4 +255,7 @@ class MongoDBManager(BaseManager):
         Returns:
             The puzzle document if found, None otherwise
         """
-        return self._db["puzzles"].find_one({"id": puzzle_id})
+        data = self._db["puzzles"].find_one({"id": puzzle_id})
+        if data is None:
+            return None
+        return PuzzleSchema(**data)

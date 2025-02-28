@@ -61,9 +61,3 @@ TARGET_OBJECTS = {
 
 # Maximum number of bodies to include in detailed description
 MAX_BODIES_TO_DESCRIBE = 5
-
-# Prompt variants
-PROMPT_DIRECT = "direct"
-PROMPT_DETAILED = "detailed"
-PROMPT_COT = "cot"  # Chain of Thought
-PROMPT_SANITY_CHECK = "sanity_check"

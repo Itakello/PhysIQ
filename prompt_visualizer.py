@@ -1,11 +1,28 @@
-import json
 from typing import Any
 
 import streamlit as st
 from loguru import logger
 
 from src.managers import DatasetManager, MongoDBManager, PromptManager
-from src.utils.const import PROMPT_COT, PROMPT_DETAILED, PROMPT_DIRECT
+from src.utils.vlm_client import VLMClient
+
+
+def display_image(container, image_url: str) -> None:
+    """Helper function to display images with consistent sizing"""
+    width = 200  # Fixed width of 200px
+    if image_url.startswith("data:image/png;base64,"):
+        # For base64 encoded images
+        container.markdown(
+            f'<img src="{image_url}" style="width:{width}px;">',
+            unsafe_allow_html=True,
+        )
+    else:
+        # For file path images
+        try:
+            container.image(image_url, width=width)
+        except Exception as e:
+            logger.error(f"Failed to display image from path {image_url}: {e}")
+            container.error(f"Failed to load image: {str(e)}")
 
 
 def render_message(message: dict[str, Any]) -> None:
@@ -18,31 +35,70 @@ def render_message(message: dict[str, Any]) -> None:
         if isinstance(content, str):
             st.write(content)
         elif isinstance(content, list):
-            for item in content:
+            # Process items while grouping consecutive images
+            i = 0
+            while i < len(content):
+                item = content[i]
+
                 if item["type"] == "text":
+                    # Render text items individually
                     st.write(item["text"])
+                    i += 1
+
                 elif item["type"] == "image_url":
-                    image_url = item["image_url"]["url"]
-                    if image_url.startswith("data:image/png;base64,"):
-                        # This is a base64 encoded image
-                        st.markdown(
-                            f'<img src="{image_url}" style="max-width:25%">',
-                            unsafe_allow_html=True,
-                        )
+                    # Find consecutive image items
+                    consecutive_images = [item]
+                    next_idx = i + 1
+
+                    while (
+                        next_idx < len(content)
+                        and content[next_idx]["type"] == "image_url"
+                    ):
+                        consecutive_images.append(content[next_idx])
+                        next_idx += 1
+
+                    # Create columns for multiple images
+                    if len(consecutive_images) > 1:
+                        cols = st.columns(len(consecutive_images))
+                        for col_idx, img_item in enumerate(consecutive_images):
+                            image_url = img_item["image_url"]["url"]
+                            display_image(cols[col_idx], image_url)
                     else:
-                        st.image(image_url, use_column_width=True)
+                        # Single image
+                        image_url = item["image_url"]["url"]
+                        img_container = st.container()
+                        display_image(img_container, image_url)
+
+                    # Move index past all consumed images
+                    i = next_idx
+                else:
+                    # Unknown type, skip
+                    i += 1
 
 
-def display_raw_message(message: dict[str, Any]) -> None:
+def display_raw_message(container, message: dict[str, Any]) -> None:
     """Display the raw message structure for debugging"""
-    with st.expander("Raw message data"):
-        # Replace large base64 strings with placeholders for readability
-        display_msg = json.loads(json.dumps(message))
-        if isinstance(display_msg.get("content"), list):
-            for item in display_msg.get("content", []):
-                if item.get("type") == "image_url" and "image_url" in item:
-                    item["image_url"]["url"] = "data:image/png;base64,[BASE64_DATA]"
-        st.json(display_msg)
+    # Create a deep copy to avoid modifying the original message
+    display_msg = message.copy()
+
+    # Handle base64 image data for better display
+    if isinstance(display_msg.get("content"), list):
+        content_copy = []
+        for item in display_msg.get("content", []):
+            item_copy = item.copy()
+            if item_copy.get("type") == "image_url" and "image_url" in item_copy:
+                # Create a copy of the image_url dict to avoid modifying the original
+                image_url_copy = item_copy["image_url"].copy()
+                # Replace base64 data with placeholder
+                if "url" in image_url_copy and image_url_copy["url"].startswith(
+                    "data:image"
+                ):
+                    image_url_copy["url"] = "data:image/png;base64,[BASE64_DATA]"
+                item_copy["image_url"] = image_url_copy
+            content_copy.append(item_copy)
+        display_msg["content"] = content_copy
+
+    container.json(display_msg)
 
 
 def main() -> None:
@@ -55,28 +111,11 @@ def main() -> None:
     st.title("PhysIQ Prompt Visualizer")
     st.write("Visualize the prompts generated for the PhysIQ physics simulation task.")
 
+    # Initialize VLM client
+    vlm_client = VLMClient()
+
     # Sidebar configuration
     st.sidebar.title("Configuration")
-
-    prompt_type = st.sidebar.selectbox(
-        "Prompt Type",
-        [PROMPT_DIRECT, PROMPT_DETAILED, PROMPT_COT],
-        format_func=lambda x: {
-            PROMPT_DIRECT: "Direct (Yes/No)",
-            PROMPT_DETAILED: "Detailed (Yes/No with Physics Parameters)",
-            PROMPT_COT: "Chain-of-Thought (Step-by-step Reasoning)",
-        }.get(x, x),
-    )
-
-    # Database sample configuration
-    sample_id = st.sidebar.text_input("Sample ID", value="00000:000")
-
-    few_shot_count = st.sidebar.slider(
-        "Few-shot Examples",
-        min_value=0,
-        max_value=4,
-        value=0,
-    )
 
     # Initialize database managers
     try:
@@ -84,16 +123,116 @@ def main() -> None:
         mongo_manager = MongoDBManager(db_name="physiq_db")
         dataset_manager = DatasetManager(db_manager=mongo_manager)
 
-        # Get sample from database
-        with st.spinner("Fetching sample from database..."):
-            sample = dataset_manager.get_sample(
-                sample_id,
-                1,  # Only one interaction
-                "CORRECT",
-                few_shot_count=few_shot_count,
+        # Fetch all correct proposals to populate the dropdowns
+        with st.spinner("Fetching available puzzles..."):
+            correct_proposals = mongo_manager.get_all_correct_proposals()
+
+            # Extract unique template IDs and iteration IDs
+            template_ids = sorted({int(p.id.split(":")[0]) for p in correct_proposals})
+
+        prompt_type = st.sidebar.selectbox(
+            "Prompt Type",
+            options=["binary", "sanity_check"],
+            index=0,
+        )
+
+        # Template ID selection
+        selected_template = st.sidebar.selectbox(
+            "Template ID",
+            options=template_ids,
+            index=0,
+            format_func=lambda x: f"{x:05d}",
+        )
+
+        # Filter iterations for the selected template
+        template_proposals = [
+            p for p in correct_proposals if int(p.id.split(":")[0]) == selected_template
+        ]
+        iteration_ids = sorted({int(p.id.split(":")[1]) for p in template_proposals})
+
+        # Iteration ID selection
+        selected_iteration = st.sidebar.selectbox(
+            "Iteration ID",
+            options=iteration_ids,
+            index=0,
+            format_func=lambda x: f"{x:03d}",
+        )
+
+        # Construct the sample ID from selected template and iteration
+        sample_id = f"{selected_template:05d}:{selected_iteration:03d}"
+
+        # Add proposal tier selection
+        proposal_tier = st.sidebar.selectbox(
+            "Proposal Tier",
+            options=["CORRECT", "INCORRECT_EASY", "INCORRECT_MEDIUM", "INCORRECT_HARD"],
+            index=0,  # Default to CORRECT
+        )
+
+        few_shot_count = st.sidebar.slider(
+            "Few-shot Examples (correct/incorrect alternated)",
+            min_value=0,
+            max_value=4,
+            value=0,
+        )
+
+        # Only show few_shot_frames slider when not in sanity_check mode
+        few_shot_frames = 1  # Default value for sanity check
+        if prompt_type != "sanity_check":
+            few_shot_frames = st.sidebar.slider(
+                "Few-shot Frames per Example",
+                min_value=1,
+                max_value=5,
+                value=1,
             )
 
-        st.success(f"Successfully loaded sample {sample_id}")
+        # Move "Show raw messages" checkbox to the sidebar
+        show_raw_messages = st.sidebar.checkbox("Show raw messages", value=False)
+
+        # VLM configuration section
+        st.sidebar.subheader("Vision Language Model")
+
+        # Check if OpenRouter API key is configured
+        if vlm_client.is_configured():
+            # Provider selection
+            selected_provider = st.sidebar.selectbox(
+                "Select Provider",
+                options=vlm_client.get_providers(),
+                index=0,
+            )
+
+            # Model selection based on provider
+            available_models = vlm_client.get_models_by_provider(selected_provider)
+            selected_model = st.sidebar.selectbox(
+                "Select Model",
+                options=available_models,
+                index=0 if available_models else None,
+            )
+        else:
+            st.sidebar.warning(
+                "OpenRouter API key not found. Set the OPENROUTER_API_KEY environment variable to enable VLM integration."
+            )
+            selected_model = None
+
+        # Get sample from database based on prompt type
+        with st.spinner(
+            f"Fetching sample {sample_id} from database (tier: {proposal_tier})..."
+        ):
+            if prompt_type == "sanity_check":
+                sample = dataset_manager.get_last_frame_sample(
+                    sample_id,
+                    proposal_tier,
+                    few_shot_count=few_shot_count,
+                )
+            else:
+                sample = dataset_manager.get_sample(
+                    sample_id,
+                    1,  # Only one interaction
+                    proposal_tier,
+                    few_shot_count=few_shot_count,
+                    few_shot_frames=few_shot_frames,
+                )
+
+        st.success(f"Successfully loaded sample {sample_id} with tier {proposal_tier}")
 
         # Debug info about few-shot examples
         if few_shot_count > 0:
@@ -104,14 +243,35 @@ def main() -> None:
                 for i, fs in enumerate(sample.few_shot):
                     st.subheader(f"Example {i+1}")
                     st.write(f"Puzzle ID: {fs.puzzle.id}")
-                    st.write(f"Is successful: {fs.proposal.tier == 'CORRECT'}")
+                    st.write(f"Tier: {fs.proposal.tier}")
                     if fs.images:
-                        st.write(f"Images: {', '.join(fs.images)}")
-                        # Display first image if available
+                        # Debug output to verify images
+                        st.write(f"Number of images: {len(fs.images)}")
+
+                        # Create a container for better layout
+                        img_container = st.container()
                         try:
-                            st.image(fs.images[0], width=200)
+                            # Create columns to display images adjacent to each other
+                            with img_container:
+                                num_images = len(fs.images)
+                                if num_images > 0:
+                                    img_cols = st.columns(num_images)
+                                    for img_idx, img_path in enumerate(fs.images):
+                                        # Force image load with error handling
+                                        with img_cols[img_idx]:
+                                            st.write(f"Frame {img_idx+1}:")
+                                            # Check if image path exists and is properly formatted
+                                            if img_path:
+                                                display_image(
+                                                    img_cols[img_idx], img_path
+                                                )
+                                            else:
+                                                st.error("Invalid image path")
                         except Exception as e:
                             st.error(f"Error displaying image: {str(e)}")
+                            logger.error(f"Image display error: {e}")
+                    else:
+                        st.warning("No images available for this example")
 
         # Initialize prompt manager with selected type
         prompt_manager = PromptManager(prompt_type=prompt_type)
@@ -124,15 +284,28 @@ def main() -> None:
 
         # Display messages
         st.subheader("Generated Messages")
+        st.caption(f"Showing prompt for {proposal_tier} proposal")
 
         # Improved few-shot rendering logic
-        if few_shot_count > 0 and len(sample.few_shot) > 0:
+        if few_shot_count > 0 and sample.few_shot and len(sample.few_shot) > 0:
             # Always display the system message first
             render_message(messages[0])
+
+            # Display raw message if enabled
+            if show_raw_messages:
+                with st.expander(
+                    f"Raw message: {messages[0].get('role')}", expanded=True
+                ):
+                    display_raw_message(st, messages[0])
 
             # Then the initial user message explaining the task
             if len(messages) > 1:
                 render_message(messages[1])
+                if show_raw_messages:
+                    with st.expander(
+                        f"Raw message: {messages[1].get('role')}", expanded=True
+                    ):
+                        display_raw_message(st, messages[1])
 
             # Check if we have few-shot examples
             if (
@@ -150,9 +323,20 @@ def main() -> None:
                     ):
                         # Display user message (question with image)
                         render_message(messages[i])
+                        if show_raw_messages:
+                            with st.expander(
+                                f"Raw message: {messages[i].get('role')}", expanded=True
+                            ):
+                                display_raw_message(st, messages[i])
 
                         # Display assistant message (answer)
                         render_message(messages[i + 1])
+                        if show_raw_messages:
+                            with st.expander(
+                                f"Raw message: {messages[i+1].get('role')}",
+                                expanded=True,
+                            ):
+                                display_raw_message(st, messages[i + 1])
 
                         i += 2  # Move to the next potential pair
                     else:
@@ -162,21 +346,55 @@ def main() -> None:
                 # Display the final user question (current problem)
                 while i < len(messages):
                     render_message(messages[i])
+                    if show_raw_messages:
+                        with st.expander(
+                            f"Raw message: {messages[i].get('role')}", expanded=True
+                        ):
+                            display_raw_message(st, messages[i])
                     i += 1
             else:
                 # No few-shot examples in the messages
                 for i in range(2, len(messages)):
                     render_message(messages[i])
+                    if show_raw_messages:
+                        with st.expander(
+                            f"Raw message: {messages[i].get('role')}", expanded=True
+                        ):
+                            display_raw_message(st, messages[i])
         else:
             # No few-shot examples requested, just show all messages sequentially
-            for msg in messages:
-                render_message(msg)
-
-        # Show raw messages for debugging
-        if st.checkbox("Show raw messages"):
             for i, msg in enumerate(messages):
-                with st.expander(f"Raw message {i+1} ({msg.get('role')})"):
-                    display_raw_message(msg)
+                render_message(msg)
+                if show_raw_messages:
+                    with st.expander(f"Raw message: {msg.get('role')}", expanded=True):
+                        display_raw_message(st, msg)
+
+        # VLM integration - Send to model button and response display
+        if vlm_client.is_configured() and selected_model:
+            st.subheader("Send to Vision Language Model")
+
+            send_col, spinner_col = st.columns([1, 3])
+            with send_col:
+                send_button = st.button(
+                    f"Send to {selected_model}", use_container_width=True
+                )
+
+            if send_button:
+                try:
+                    with spinner_col:
+                        with st.spinner(f"Sending to {selected_model}..."):
+                            response = vlm_client.send_message(messages, selected_model)
+
+                    # Display model response
+                    st.subheader("Model Response")
+                    st.markdown("---")
+                    with st.chat_message("assistant"):
+                        st.write(response)
+                    st.markdown("---")
+
+                except Exception as e:
+                    st.error(f"Error sending messages to {selected_model}: {str(e)}")
+                    logger.error(f"VLM API error: {str(e)}")
 
     except Exception as e:
         logger.error(f"Error loading sample from database: {str(e)}")
@@ -193,6 +411,9 @@ def main() -> None:
         
         Select different prompt types and options to see how they affect 
         the generated messages.
+        
+        You can also send the prompt to various Vision Language Models using
+        the OpenRouter integration.
         """
     )
 

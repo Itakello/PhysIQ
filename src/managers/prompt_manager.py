@@ -3,20 +3,14 @@ from typing import Any
 
 from src.utils.const import (
     COLORS,
-    DYNAMIC_BODY,
+    FPS,
+    GOAL_COLLISIONS_REQUIRED,
     MAX_BODIES_TO_DESCRIBE,
-    PROMPT_COT,
-    PROMPT_DETAILED,
-    PROMPT_DIRECT,
     STATIC_BODY,
+    TIME_SCALE,
 )
-from src.utils.db_schemas import SampleData
-from src.utils.prompts import (
-    FLAT_USER_TEMPLATES,
-    SYSTEM_TEMPLATE,
-    SYSTEM_TEMPLATES,
-    USER_TEMPLATES,
-)
+from src.utils.db_schemas import BodyData, FewShotData, PuzzleSchema, SampleData
+from src.utils.prompts import SYSTEM_TEMPLATE, SYSTEM_TEMPLATES, USER_TEMPLATES
 
 
 class PromptManager:
@@ -30,27 +24,16 @@ class PromptManager:
       3. Build the final system message, user message, or both.
     """
 
-    def __init__(
-        self,
-        system_template: str = SYSTEM_TEMPLATE,
-        user_template: str | None = None,
-        prompt_type: str = PROMPT_DIRECT,
-    ) -> None:
+    def __init__(self, prompt_type: str) -> None:
         """
         Args:
             system_template: The system-level template string. E.g. "You are a physics solver..."
             user_template:   The user prompt template string.
-            prompt_type:     The type of prompt to use (DIRECT, DETAILED, COT, or SANITY_CHECK)
+            prompt_type:     The type of prompt to use (defaults to BINARY)
         """
-        self.system_template = system_template
         self.prompt_type = prompt_type
-        # Use provided user_template if given, otherwise select from built-in templates
-        if user_template:
-            self.user_template = user_template
-        else:
-            self.user_template = FLAT_USER_TEMPLATES.get(
-                prompt_type, FLAT_USER_TEMPLATES[PROMPT_DIRECT]
-            )
+        self.system_template = SYSTEM_TEMPLATES.get(prompt_type, "binary")
+        self.user_template = USER_TEMPLATES.get(prompt_type, "binary")
 
     def build_prompt(
         self,
@@ -64,7 +47,7 @@ class PromptManager:
         Args:
             sample: SampleData object containing puzzle, proposal, images and optional few-shots.
             insert_few_shot: Whether to include few-shot examples in the prompt.
-            prompt_type: Override the default prompt type (DIRECT, DETAILED, or COT)
+            prompt_type: Override the default prompt type
 
         Returns:
             { "system": <final system message str>,
@@ -72,27 +55,21 @@ class PromptManager:
             }
         """
         current_prompt_type = prompt_type or self.prompt_type
-        user_template = FLAT_USER_TEMPLATES.get(current_prompt_type, self.user_template)
+        user_template = USER_TEMPLATES.get(current_prompt_type, self.user_template)
 
         # Build dictionary of known placeholders
-        fill_dict = self._extract_values(
-            sample.puzzle.model_dump(), sample.proposal.model_dump(), sample.images
-        )
+        fill_dict = self._extract_values(sample.puzzle, sample.images)
 
         # Few-shot handling - removing from templates, will be handled separately
         few_shot_str = ""
         if insert_few_shot and sample.few_shot:
             few_shot_str = self._build_few_shot_string(
-                [fs.model_dump() for fs in sample.few_shot], current_prompt_type
+                [fs.model_dump() for fs in sample.few_shot]
             )
 
         # Fill templates - don't include few_shot_str in system message
         filled_system = self._fill_template(self.system_template, fill_dict, "")
         filled_user = self._fill_template(user_template, fill_dict, few_shot_str)
-
-        # Remove the few-shot placeholder from user template
-        filled_user = filled_user.replace("<FEW_SHOT>", "")
-        filled_user = filled_user.replace("{{FEW_SHOT}}", "")
 
         return {"system": filled_system, "user": filled_user}
 
@@ -104,27 +81,19 @@ class PromptManager:
         """
         Builds the final prompt as a list of OpenAI API-compatible messages following:
         1. System message with instructions
-        2. User message with task description and physics details
-        3. Few-shot examples (if requested)
-        4. Final user message with specific question and image
+        2. Few-shot examples (if requested)
+        3. Final user message with specific question and image
 
         Args:
             sample: SampleData object containing puzzle, proposal, images and optional few-shots.
             insert_few_shot: Whether to include few-shot examples in the prompt.
-            use_images_paths: Whether to use image placeholders in the prompt.
 
         Returns:
             A list of message dictionaries compatible with OpenAI API format.
         """
-        current_prompt_type = self.prompt_type
-        template = USER_TEMPLATES.get(
-            current_prompt_type, USER_TEMPLATES[PROMPT_DIRECT]
-        )
 
         # Build dictionary of values to substitute in the templates
-        fill_dict = self._extract_values(
-            sample.puzzle.model_dump(), sample.proposal.model_dump(), sample.images
-        )
+        fill_dict = self._extract_values(sample.puzzle, sample.images)
 
         # 1. System message with instructions
         messages = [
@@ -134,21 +103,15 @@ class PromptManager:
             }
         ]
 
-        # 2. User message with task description and physics details
-        description = self._fill_template(template["description"], fill_dict, "")
-        messages.append({"role": "user", "content": description})
-
-        # 3. Add few-shot examples if requested
+        # 2. Add few-shot examples if requested
         if insert_few_shot and sample.few_shot:
             for fs_example in sample.few_shot:
-                few_shot_messages = self._create_few_shot_messages(
-                    fs_example.model_dump(), self.prompt_type
-                )
+                few_shot_messages = self._create_few_shot_messages(fs_example)
                 messages.extend(few_shot_messages)
 
-        # 4. Final user message with the specific question and image
-        question = self._fill_template(template["question"], fill_dict, "")
-        user_content = [{"type": "text", "text": question}]
+        # 3. Final user message with the specific question and image
+        question = self._fill_template(self.user_template, fill_dict, "")
+        user_content = []
 
         # Add the main sample images
         for image_path in sample.images:
@@ -162,20 +125,24 @@ class PromptManager:
                             "url": f"data:image/png;base64,{encoded_img}",
                             "detail": "high",
                         },
-                    }  # type: ignore
+                    }
                 )
 
-        messages.append({"role": "user", "content": user_content})
+        # Add the question after the images
+        user_content.append({"type": "text", "text": question})
+
+        messages.append({"role": "user", "content": user_content})  # type: ignore
         return messages
 
     def _create_few_shot_messages(
-        self, few_shot: dict[str, Any], prompt_type: str
+        self,
+        few_shot: FewShotData,
     ) -> list[dict[str, Any]]:
         """
         Create assistant and user messages for a single few-shot example.
 
         Args:
-            few_shot: Dictionary containing the few-shot example data
+            few_shot: FewShotData object containing the few-shot example data
             prompt_type: The type of prompt being used
 
         Returns:
@@ -183,58 +150,74 @@ class PromptManager:
         """
         messages = []
 
-        # Extract data
-        puzzle = few_shot.get("puzzle", {})
-        proposal = few_shot.get("proposal", {})
-        images = few_shot.get("images", [])
-        success_status = "Yes" if proposal.get("is_successful", False) else "No"
+        # Extract data directly from the FewShotData object
+        puzzle = few_shot.puzzle
+        proposal = few_shot.proposal
+        images = few_shot.images
 
-        # First create user message with example images if available
+        # Determine success status - use Yes/No based on whether the proposal is CORRECT
+        success_status = "Yes" if proposal.tier == "CORRECT" else "No"
+
+        # Extract target objects from the puzzle data
+        target_obj1 = "target object 1"
+        target_obj2 = "target object 2"
+
+        # Get target object information from the relationship in puzzle
+        if puzzle.relationship and puzzle.bodies:
+            rel = puzzle.relationship
+            bodies = puzzle.bodies
+
+            if len(bodies) > rel.bodyId1 and len(bodies) > rel.bodyId2:
+                obj1 = bodies[rel.bodyId1]
+                obj2 = bodies[rel.bodyId2]
+
+                obj1_type = self._get_object_type(obj1)
+                obj2_type = self._get_object_type(obj2)
+
+                obj1_color = COLORS.get(obj1.color, "unknown color")
+                obj2_color = COLORS.get(obj2.color, "unknown color")
+
+                target_obj1 = f"{obj1_color} {obj1_type}"
+                target_obj2 = f"{obj2_color} {obj2_type}"
+
+        # Create user message with initial screenshot and question
         user_content = []
 
-        # Add text description
-        user_content.append(
-            {"type": "text", "text": "Here is another physics simulation to analyze:"}
-        )
+        # Add example number prefix to the message
+        example_prefix = f"Example {few_shot.index}:"
 
-        # Add images
-        for image_path in images:
-            with open(image_path, "rb") as f:
-                img_data = f.read()
-                encoded_img = base64.b64encode(img_data).decode("utf-8")
-                user_content.append(
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{encoded_img}",
-                            "detail": "high",
-                        },
-                    }
-                )
+        user_content.append({"type": "text", "text": example_prefix})
+
+        # Add ALL available images instead of just the first one
+        if images:
+            for image_path in images:
+                with open(image_path, "rb") as f:
+                    img_data = f.read()
+                    encoded_img = base64.b64encode(img_data).decode("utf-8")
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{encoded_img}",
+                                "detail": "high",
+                            },
+                        }
+                    )
+
+        # Add the formatted question with example number prefix and context
+        full_question = f"Will the {target_obj1} and {target_obj2} come into contact for {int((GOAL_COLLISIONS_REQUIRED / (FPS * TIME_SCALE)) / 2)} seconds?"
+        user_content.append({"type": "text", "text": full_question})
 
         messages.append({"role": "user", "content": user_content})
 
-        # Then create assistant message with the example solution
-        if prompt_type == PROMPT_COT:
-            reasoning = proposal.get("reasoning", "No reasoning provided")
-            assistant_content = (
-                f"Step-by-step analysis:\n{reasoning}\n\nAnswer: {success_status}"
-            )
-        elif prompt_type == PROMPT_DETAILED:
-            assistant_content = f"{success_status}"
-        elif prompt_type == "sanity_check":
-            assistant_content = success_status
-        else:  # PROMPT_DIRECT
-            assistant_content = success_status
-
-        messages.append({"role": "assistant", "content": assistant_content})
+        # Create assistant message with the answer (Yes/No)
+        messages.append({"role": "assistant", "content": success_status})
 
         return messages
 
     def _extract_values(
         self,
-        puzzle_data: dict[str, Any],
-        proposal_data: dict[str, Any],
+        puzzle_data: PuzzleSchema,
         images: list[str],
     ) -> dict[str, str]:
         """
@@ -249,64 +232,47 @@ class PromptManager:
             fill_values["IMAGES"] = "No images found"
 
         # Extract relationship information to identify target objects
-        if "relationship" in puzzle_data and "bodies" in puzzle_data:
-            rel = puzzle_data["relationship"]
-            bodies = puzzle_data["bodies"]
+        if puzzle_data.relationship and puzzle_data.bodies:
+            rel = puzzle_data.relationship
+            bodies = puzzle_data.bodies
 
             # Get the two objects that should come into contact
-            if len(bodies) > rel["bodyId1"] and len(bodies) > rel["bodyId2"]:
-                obj1 = bodies[rel["bodyId1"]]
-                obj2 = bodies[rel["bodyId2"]]
+            if len(bodies) > rel.bodyId1 and len(bodies) > rel.bodyId2:
+                obj1 = bodies[rel.bodyId1]
+                obj2 = bodies[rel.bodyId2]
 
                 obj1_type = self._get_object_type(obj1)
                 obj2_type = self._get_object_type(obj2)
 
-                obj1_color = COLORS.get(obj1.get("color", 0), "unknown color")
-                obj2_color = COLORS.get(obj2.get("color", 0), "unknown color")
+                obj1_color = COLORS.get(obj1.color, "unknown color")
+                obj2_color = COLORS.get(obj2.color, "unknown color")
 
                 fill_values["TARGET_OBJ1"] = f"{obj1_color} {obj1_type}"
                 fill_values["TARGET_OBJ2"] = f"{obj2_color} {obj2_type}"
 
-                # Add object type information - only specify if static, as dynamic is implied
-                obj1_body_type = (
-                    "static" if obj1.get("body_type") == STATIC_BODY else ""
-                )
-                obj2_body_type = (
-                    "static" if obj2.get("body_type") == STATIC_BODY else ""
-                )
-                fill_values["OBJ1_TYPE"] = obj1_body_type
-                fill_values["OBJ2_TYPE"] = obj2_body_type
-
-                # Set ADDITIONAL_OBJECTS to empty string to avoid adding it to any prompt
-                fill_values["ADDITIONAL_OBJECTS"] = ""
-
-        # Create a description based on metadata or generate one
-        if "metadata" in puzzle_data and puzzle_data["metadata"].get("description"):
-            fill_values["CUSTOM_DESCRIPTION"] = puzzle_data["metadata"]["description"]
-        else:
-            fill_values["CUSTOM_DESCRIPTION"] = self._generate_description(puzzle_data)
-
         return fill_values
 
-    def _get_object_type(self, obj_data: dict) -> str:
+    def _get_object_type(self, obj_data: BodyData) -> str:
         """Determine object type based on its properties"""
-        if obj_data.get("shape_type") == 1:  # Circle
+        if obj_data.shape_type == 1:  # Circle
             return "ball"
-        elif obj_data.get("shape_type") == 0:  # Polygon
+        elif obj_data.shape_type == 0:  # Polygon
             # Simplistic rectangle detection - could be enhanced
             return "rectangle"
-        elif obj_data.get("shape_type") in [2, 3]:  # Custom shape
+        elif obj_data.shape_type == 2:  # Custom shape
             return "bar"
+        elif obj_data.shape_type == 3:
+            return "bucket"
         else:
             return "object"
 
-    def _generate_description(self, puzzle_data: dict) -> str:
+    def _generate_description(self, puzzle_data: PuzzleSchema) -> str:
         """Generate a description of the puzzle if none is provided"""
-        if "metadata" not in puzzle_data or "bodies" not in puzzle_data:
+        if not puzzle_data.bodies:
             return "A physics puzzle with multiple objects."
 
-        bodies = puzzle_data["bodies"]
-        static_count = sum(1 for b in bodies if b.get("body_type") == STATIC_BODY)
+        bodies = puzzle_data.bodies
+        static_count = sum(1 for b in bodies if b.body_type == STATIC_BODY)
         dynamic_count = len(bodies) - static_count
 
         description = f"The scene contains {len(bodies)} objects: {static_count} static and {dynamic_count} dynamic."
@@ -315,11 +281,9 @@ class PromptManager:
         if len(bodies) <= MAX_BODIES_TO_DESCRIBE:
             details = []
             for i, body in enumerate(bodies[:MAX_BODIES_TO_DESCRIBE]):
-                body_type = (
-                    "static" if body.get("body_type") == STATIC_BODY else "dynamic"
-                )
+                body_type = "static" if body.body_type == STATIC_BODY else "dynamic"
                 shape_type = self._get_object_type(body)
-                color = COLORS.get(body.get("color", 0), "unknown color")
+                color = COLORS.get(body.color, "unknown color")
                 details.append(f"Object {i+1}: A {color} {shape_type} ({body_type})")
 
             description += " " + " ".join(details)
@@ -327,7 +291,8 @@ class PromptManager:
         return description
 
     def _build_few_shot_string(
-        self, few_shot_examples: list[dict[str, Any]], prompt_type: str = PROMPT_DIRECT
+        self,
+        few_shot_examples: list[dict[str, Any]],
     ) -> str:
         """
         Convert the list of few-shot exemplars to a textual snippet.
@@ -379,13 +344,8 @@ class PromptManager:
             lines.append(f"Initial state: [Image: {initial_image}]")
             lines.append(f"Final state: [Image: {final_image}]")
 
-            # Additional details based on prompt type
-            if prompt_type == PROMPT_COT:
-                lines.append("Step-by-step analysis:")
-                lines.append(f"{proposal.get('reasoning', 'No reasoning provided')}")
-                lines.append(f"Answer: {success_status}")
-            else:  # All other prompts just have Yes/No
-                lines.append(f"Answer: {success_status}")
+            # Just the answer for all prompt types
+            lines.append(f"Answer: {success_status}")
 
         return "\n".join(lines)
 

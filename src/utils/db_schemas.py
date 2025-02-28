@@ -57,6 +57,7 @@ class FewShotData(BaseModel):
     puzzle: PuzzleSchema
     proposal: ProposalSchema
     images: list[str]
+    index: int
 
 
 class SampleData(BaseModel):

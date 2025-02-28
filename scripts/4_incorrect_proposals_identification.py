@@ -33,7 +33,7 @@ from src.managers import (
     SimulationManager,
 )
 from src.utils.const import MAX_ATTEMPTS, MAX_RADIUS, MIN_RADIUS, SCENE_DIMENSIONS
-from src.utils.db_schemas import ProposalData, ProposalSchema
+from src.utils.db_schemas import ProposalData, ProposalSchema, PuzzleSchema
 
 
 def get_random_position(
@@ -113,7 +113,7 @@ def find_incorrect_proposals(
     db_manager: MongoDBManager,
     simulation_manager: SimulationManager,
     screenshot_manager: ScreenshotManager,
-    puzzle_doc: dict,
+    puzzle: PuzzleSchema,
     correct_proposal: ProposalSchema,
     difficulty: str,
     visualize: bool,
@@ -123,14 +123,14 @@ def find_incorrect_proposals(
     attempts = 0
     pbar = tqdm(
         total=MAX_ATTEMPTS,
-        desc=f"Puzzle {puzzle_doc['id']} - {difficulty}",
+        desc=f"Puzzle {puzzle.id} - {difficulty}",
         leave=False,
     )
 
     while attempts < MAX_ATTEMPTS:
         ball_docs = create_proposals_docs(correct_proposal.proposals, difficulty)
 
-        tmp_puzzle_doc = copy.deepcopy(puzzle_doc)
+        tmp_puzzle_doc = copy.deepcopy(puzzle.model_dump())
         tmp_puzzle_doc["bodies"].extend(ball_docs)
 
         try:
@@ -153,11 +153,11 @@ def find_incorrect_proposals(
             if save_proposals and screenshots:
                 screenshots_path = screenshot_manager.save_screenshots(
                     screenshots,
-                    puzzle_doc["id"].replace(":", "_"),
+                    tmp_puzzle_doc["id"].replace(":", "_"),
                 )
                 proposals = [ProposalData(**ball_doc) for ball_doc in ball_docs]
                 proposal_data = ProposalSchema(
-                    id=puzzle_doc["id"],
+                    id=tmp_puzzle_doc["id"],
                     attempt=attempts,
                     proposals=proposals,
                     image_path=screenshots_path.as_posix(),
@@ -208,13 +208,13 @@ def main() -> None:
         total=len(correct_proposals),
     ):
         puzzle_id = correct_proposal.id
-        puzzle_doc = db_manager.get_puzzle_by_id(puzzle_id)
+        puzzle = db_manager.get_puzzle_by_id(puzzle_id)
 
-        if not puzzle_doc:
+        if not puzzle:
             logger.warning(f"Puzzle not found for proposal {puzzle_id}, skipping")
             continue
 
-        if not puzzle_doc.get("metadata", {}).get("testable", True):
+        if not puzzle.metadata.testable:
             logger.debug(f"Puzzle {puzzle_id} is not testable, skipping")
             continue
 
@@ -223,7 +223,7 @@ def main() -> None:
                 db_manager=db_manager,
                 simulation_manager=simulation_manager,
                 screenshot_manager=screenshot_managers[difficulty],
-                puzzle_doc=puzzle_doc,
+                puzzle=puzzle,
                 correct_proposal=correct_proposal,
                 difficulty=difficulty,
                 visualize=args.visualize,
