@@ -43,7 +43,7 @@ def main() -> None:
     }
 
     # Get a sample with few-shot examples
-    sample_data = dataset_manager.get_sample(
+    sample_data = dataset_manager.get_binary_sample(
         "00124:002", 1, "CORRECT", few_shot_count=2
     )
 

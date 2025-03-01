@@ -65,3 +65,36 @@ class SampleData(BaseModel):
     proposal: ProposalSchema
     images: list[str]
     few_shot: list[FewShotData] | None = None
+
+
+# New schema classes for ranking samples
+class RankingProposalItem(BaseModel):
+    """A single proposal in a ranking sample"""
+
+    proposal: ProposalSchema
+    images: list[str]
+    tier: str  # Used for tracking the original tier (CORRECT, INCORRECT_EASY, etc.)
+    original_index: int  # Track the original position before shuffling
+
+
+class RankingMetadata(BaseModel):
+    """Metadata for ranking samples"""
+
+    correct_ranking: list[int]  # The correct order indices after shuffling
+    proposal_tiers: list[str]  # The tier of each proposal in order
+
+
+class RankingSampleData(SampleData):
+    """Extended sample data for ranking tasks with multiple proposals"""
+
+    proposals: list[RankingProposalItem]
+    metadata: RankingMetadata
+
+
+# New schema class for ranking few-shot examples
+class RankingFewShotData(FewShotData):
+    """Extended few-shot data for ranking tasks with multiple proposals"""
+
+    proposals: list[ProposalSchema]
+    images_list: list[list[str]]
+    metadata: RankingMetadata

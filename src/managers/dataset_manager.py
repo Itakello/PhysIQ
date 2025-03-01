@@ -4,7 +4,16 @@ from typing import Any
 
 from loguru import logger
 
-from src.utils.db_schemas import FewShotData, ProposalSchema, PuzzleSchema, SampleData
+from src.utils.db_schemas import (
+    FewShotData,
+    ProposalSchema,
+    PuzzleSchema,
+    RankingFewShotData,
+    RankingMetadata,
+    RankingProposalItem,
+    RankingSampleData,
+    SampleData,
+)
 
 from .mongodb_manager import MongoDBManager
 
@@ -30,7 +39,7 @@ class DatasetManager:
         self.db_manager = db_manager
         self.images_base_dir = Path(images_base_dir)
 
-    def get_sample(
+    def get_binary_sample(
         self,
         puzzle_id: str,
         num_frames: int,
@@ -81,7 +90,7 @@ class DatasetManager:
             few_shot=few_shot_samples,
         )
 
-    def get_last_frame_sample(
+    def get_sanity_check_sample(
         self,
         puzzle_id: str,
         proposal_tier: str,
@@ -126,6 +135,287 @@ class DatasetManager:
             images=images,
             few_shot=few_shot_samples,
         )
+
+    def get_ranking_sample(
+        self,
+        puzzle_id: str,
+        num_frames: int,
+        few_shot_count: int = 0,
+        few_shot_frames: int = 2,
+    ) -> RankingSampleData:
+        """
+        Retrieve a puzzle and all its proposals (correct, incorrect_easy, medium, hard)
+        for a ranking task, with random ordering of proposals.
+
+        Args:
+            puzzle_id: The puzzle identifier, e.g. "00012:001"
+            num_frames: Number of frames to retrieve for each proposal
+            few_shot_count: Number of few-shot examples to include
+            few_shot_frames: Number of frames to include for each few-shot example
+
+        Returns:
+            A RankingSampleData object containing the puzzle and multiple proposals
+        """
+        # Define correct ranking order: CORRECT > INCORRECT_HARD > INCORRECT_MEDIUM > INCORRECT_EASY
+        ranking_order = {
+            "CORRECT": 0,
+            "INCORRECT_HARD": 1,
+            "INCORRECT_MEDIUM": 2,
+            "INCORRECT_EASY": 3,
+        }
+
+        # 1) Retrieve puzzle
+        puzzle = self.db_manager.get_puzzle_by_id(puzzle_id)
+        if not puzzle:
+            raise ValueError(f"No puzzle found with id={puzzle_id}")
+
+        # 2) Retrieve all proposal tiers for this puzzle
+        proposal_tiers = [
+            "CORRECT",
+            "INCORRECT_EASY",
+            "INCORRECT_MEDIUM",
+            "INCORRECT_HARD",
+        ]
+
+        proposals = []
+        images_list = []
+        tiers_list = []  # Store the tier for each proposal
+
+        for tier_index, tier in enumerate(proposal_tiers):
+            proposal = self.db_manager.get_proposal(puzzle_id, tier)
+            if proposal:
+                # Get images for this proposal
+                images = self._retrieve_images(proposal.image_path, num_frames)
+                if images:
+                    proposals.append(proposal)
+                    images_list.append(images)
+                    tiers_list.append(tier)
+
+        if not proposals:
+            raise ValueError(f"No valid proposals found for puzzle_id={puzzle_id}")
+
+        # Randomize the order while keeping track of which proposal is which
+        indices = list(range(len(proposals)))
+        combined = list(zip(indices, proposals, images_list, tiers_list))
+        random.shuffle(combined)
+
+        # Extract the shuffled data
+        shuffled_indices, shuffled_proposals, shuffled_images_list, shuffled_tiers = (
+            zip(*combined)
+        )
+
+        # Store the correct answer order based on the ranking_order dictionary
+        # Higher ranked proposals (lower ranking_order value) should come first
+        correct_ranking = []
+        for i, tier in enumerate(shuffled_tiers):
+            # Each position stores the position number of the proposal in order of correctness
+            rank_position = ranking_order.get(
+                tier, 4
+            )  # Default to lowest rank if unknown
+            correct_ranking.append((i, rank_position))
+
+        # Sort by rank position and extract the indices
+        correct_ranking.sort(key=lambda x: x[1])
+        correct_ranking = [idx for idx, _ in correct_ranking]
+
+        # 3) Get few-shot examples if requested
+        few_shot_samples = []
+        if few_shot_count > 0:
+            few_shot_samples = self._get_ranking_few_shot_samples(
+                few_shot_count, puzzle_id, few_shot_frames
+            )
+
+        # Create a list of RankingProposalItem objects
+        ranking_proposals = [
+            RankingProposalItem(
+                proposal=prop, images=imgs, tier=tier, original_index=idx
+            )
+            for idx, prop, imgs, tier in zip(
+                shuffled_indices,
+                shuffled_proposals,
+                shuffled_images_list,
+                shuffled_tiers,
+            )
+        ]
+
+        # Create metadata
+        ranking_metadata = RankingMetadata(
+            correct_ranking=correct_ranking, proposal_tiers=shuffled_tiers
+        )
+
+        # Return using the first proposal for backward compatibility with standard SampleData fields
+        return RankingSampleData(
+            puzzle=puzzle,
+            proposal=shuffled_proposals[
+                0
+            ],  # Using first as primary (for compatibility)
+            images=shuffled_images_list[
+                0
+            ],  # Using first as primary (for compatibility)
+            few_shot=few_shot_samples,
+            proposals=ranking_proposals,
+            metadata=ranking_metadata,
+        )
+
+    def _get_ranking_few_shot_samples(
+        self, few_shot_count: int, current_puzzle_id: str, few_shot_frames: int = 2
+    ) -> list[RankingFewShotData]:
+        """
+        Create few-shot examples specifically for ranking tasks.
+        Each few-shot example contains multiple proposals for a single puzzle.
+
+        Args:
+            few_shot_count: Number of few-shot puzzles to retrieve
+            current_puzzle_id: Current puzzle ID to exclude
+            few_shot_frames: Number of frames per proposal (always using first frame for ranking)
+
+        Returns:
+            List of RankingFewShotData objects with ranking examples
+        """
+        # Define correct ranking order: CORRECT > INCORRECT_HARD > INCORRECT_MEDIUM > INCORRECT_EASY
+        ranking_order = {
+            "CORRECT": 0,
+            "INCORRECT_HARD": 1,
+            "INCORRECT_MEDIUM": 2,
+            "INCORRECT_EASY": 3,
+        }
+
+        if few_shot_count <= 0:
+            return []
+
+        # Get unique puzzle IDs (excluding current)
+        base_filter = {}
+        if current_puzzle_id:
+            base_filter = {"id": {"$ne": current_puzzle_id}}
+
+        # Find puzzles that have all proposal types
+        puzzles_with_proposals = {}
+        proposal_tiers = [
+            "CORRECT",
+            "INCORRECT_EASY",
+            "INCORRECT_MEDIUM",
+            "INCORRECT_HARD",
+        ]
+
+        # First, get all puzzles
+        puzzle_cursor = self.db_manager.db["puzzles"].find(base_filter)
+
+        for puzzle_doc in puzzle_cursor:
+            puzzle_id = puzzle_doc["id"]
+            has_all_tiers = True
+
+            # Check if this puzzle has all proposal tiers
+            for tier in proposal_tiers:
+                proposal = self.db_manager.db["proposals"].find_one(
+                    {"id": puzzle_id, "tier": tier}
+                )
+                if not proposal:
+                    has_all_tiers = False
+                    break
+
+            if has_all_tiers:
+                puzzles_with_proposals[puzzle_id] = puzzle_doc
+
+        # Pick random puzzles from those with all proposals
+        puzzle_ids = list(puzzles_with_proposals.keys())
+        if not puzzle_ids:
+            logger.warning(
+                "No puzzles found with all proposal tiers for few-shot examples"
+            )
+            return []
+
+        # Select random puzzles
+        few_shot_puzzle_ids = random.sample(
+            puzzle_ids, min(few_shot_count, len(puzzle_ids))
+        )
+
+        few_shot_data = []
+        for idx, fs_puzzle_id in enumerate(few_shot_puzzle_ids):
+            puzzle_doc = puzzles_with_proposals[fs_puzzle_id]
+            puzzle = PuzzleSchema(**puzzle_doc)
+
+            # For each puzzle, get all proposals and randomize their order
+            fs_proposals = []
+            fs_images_list = []
+            fs_tiers = []
+
+            # Ensure we have all proposals for this puzzle
+            all_proposals_found = True
+            for tier in proposal_tiers:
+                proposal_doc = self.db_manager.db["proposals"].find_one(
+                    {"id": fs_puzzle_id, "tier": tier}
+                )
+                if proposal_doc:
+                    proposal = ProposalSchema(**proposal_doc)
+                    # For ranking, always use first frame only
+                    images = self._retrieve_images(proposal.image_path, 1)
+                    if images:
+                        fs_proposals.append(proposal)
+                        fs_images_list.append(images)
+                        fs_tiers.append(tier)
+                else:
+                    all_proposals_found = False
+                    break
+
+            # Skip this puzzle if we're missing any proposal tier
+            if not all_proposals_found or len(fs_proposals) != len(proposal_tiers):
+                logger.warning(
+                    f"Skipping puzzle {fs_puzzle_id} - missing some proposal tiers"
+                )
+                continue
+
+            # Randomize order while keeping track of index positions
+            indices = list(range(len(fs_proposals)))
+            combined = list(zip(indices, fs_proposals, fs_images_list, fs_tiers))
+            random.shuffle(combined)
+
+            (
+                shuffled_indices,
+                shuffled_proposals,
+                shuffled_images_list,
+                shuffled_tiers,
+            ) = zip(*combined)
+
+            # Create correct ranking based on tier quality (sort by ranking_order values)
+            # First, create pairs of (index, rank_position) where lower rank_position is better
+            correct_ranking_pairs = []
+            for i, tier in enumerate(shuffled_tiers):
+                rank_position = ranking_order.get(tier, 4)
+                correct_ranking_pairs.append((i, rank_position))
+
+            # Sort by rank position (second element of tuple)
+            correct_ranking_pairs.sort(key=lambda x: x[1])
+
+            # Extract just the indices in order from best to worst
+            correct_ranking = [idx for idx, _ in correct_ranking_pairs]
+
+            # Create ranking metadata
+            ranking_metadata = RankingMetadata(
+                correct_ranking=correct_ranking,
+                proposal_tiers=list(shuffled_tiers),  # Convert tuple to list
+            )
+
+            # Create RankingFewShotData object instead of FewShotData
+            few_shot = RankingFewShotData(
+                puzzle=puzzle,
+                proposal=shuffled_proposals[0],  # First proposal for compatibility
+                images=shuffled_images_list[0],  # First images for compatibility
+                index=idx + 1,
+                proposals=list(shuffled_proposals),  # Convert tuple to list
+                images_list=list(shuffled_images_list),  # Convert tuple to list
+                metadata=ranking_metadata,
+            )
+
+            # Logging to confirm structure
+            logger.debug(
+                f"Created ranking few-shot example {idx+1}: "
+                f"{len(few_shot.proposals)} proposals, "
+                f"correct ranking: {correct_ranking}"
+            )
+
+            few_shot_data.append(few_shot)
+
+        return few_shot_data
 
     def _retrieve_images(self, image_path: str, num_frames: int) -> list[str]:
         """

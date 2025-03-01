@@ -4,6 +4,7 @@ import streamlit as st
 from loguru import logger
 
 from src.managers import DatasetManager, MongoDBManager, PromptManager
+from src.utils.db_schemas import RankingSampleData
 from src.utils.vlm_client import VLMClient
 
 
@@ -101,6 +102,61 @@ def display_raw_message(container, message: dict[str, Any]) -> None:
     container.json(display_msg)
 
 
+def display_ranking_info(container, sample) -> None:
+    """Display ranking-specific information about proposals and their scores"""
+    if hasattr(sample, "proposals") and hasattr(sample, "metadata"):
+        container.subheader("Ranking Information")
+
+        # Create table headers
+        cols = container.columns([1, 2, 2, 2])
+        cols[0].markdown("**Position**")
+        cols[1].markdown("**Proposal Tier**")
+        cols[2].markdown("**Original Index**")
+        cols[3].markdown("**Expected Rank**")
+
+        # Create table rows
+        for i, proposal_item in enumerate(sample.proposals):
+            cols = container.columns([1, 2, 2, 2])
+            cols[0].write(f"{i+1}")
+            cols[1].write(proposal_item.tier)
+            cols[2].write(f"{proposal_item.original_index}")
+
+            # Find expected rank (position in correct_ranking)
+            expected_rank = "Unknown"
+            if hasattr(sample.metadata, "correct_ranking"):
+                for pos, idx in enumerate(sample.metadata.correct_ranking):
+                    if idx == proposal_item.original_index:
+                        expected_rank = f"{pos+1}"
+                        break
+
+            cols[3].write(expected_rank)
+
+        # Additional information about correct ordering
+        container.write("**Correct ordering (from best to worst):**")
+        if hasattr(sample.metadata, "proposal_tiers"):
+            tiers = sample.metadata.proposal_tiers
+            ranking_indices = list(range(len(tiers)))
+
+            # Sort ranking indices by expected correctness (CORRECT first, then INCORRECT tiers)
+            ranking_indices.sort(
+                key=lambda i: (
+                    0
+                    if tiers[i] == "CORRECT"
+                    else (
+                        1
+                        if tiers[i] == "INCORRECT_EASY"
+                        else 2 if tiers[i] == "INCORRECT_MEDIUM" else 3
+                    )
+                )
+            )
+
+            # Show the correct order using 1-based indexing
+            correct_order = [idx + 1 for idx in ranking_indices]
+            container.write(f"Proposals: {correct_order}")
+    else:
+        container.warning("This is not a properly formatted ranking sample")
+
+
 def main() -> None:
     st.set_page_config(
         page_title="PhysIQ Prompt Visualizer",
@@ -132,7 +188,7 @@ def main() -> None:
 
         prompt_type = st.sidebar.selectbox(
             "Prompt Type",
-            options=["binary", "sanity_check"],
+            options=["sanity_check", "binary", "ranking"],  # Added "ranking"
             index=0,
         )
 
@@ -161,23 +217,30 @@ def main() -> None:
         # Construct the sample ID from selected template and iteration
         sample_id = f"{selected_template:05d}:{selected_iteration:03d}"
 
-        # Add proposal tier selection
-        proposal_tier = st.sidebar.selectbox(
-            "Proposal Tier",
-            options=["CORRECT", "INCORRECT_EASY", "INCORRECT_MEDIUM", "INCORRECT_HARD"],
-            index=0,  # Default to CORRECT
-        )
+        # Add proposal tier selection - only show if not using ranking mode
+        proposal_tier = "CORRECT"  # Default value
+        if prompt_type != "ranking":
+            proposal_tier = st.sidebar.selectbox(
+                "Proposal Tier",
+                options=[
+                    "CORRECT",
+                    "INCORRECT_EASY",
+                    "INCORRECT_MEDIUM",
+                    "INCORRECT_HARD",
+                ],
+                index=0,  # Default to CORRECT
+            )
 
         few_shot_count = st.sidebar.slider(
-            "Few-shot Examples (correct/incorrect alternated)",
+            "Few-shot Examples",
             min_value=0,
             max_value=4,
-            value=0,
+            value=1,
         )
 
-        # Only show few_shot_frames slider when not in sanity_check mode
-        few_shot_frames = 1  # Default value for sanity check
-        if prompt_type != "sanity_check":
+        # Only show few_shot_frames slider when not in sanity_check or ranking mode
+        few_shot_frames = 1  # Default value
+        if prompt_type not in ["sanity_check", "ranking"]:
             few_shot_frames = st.sidebar.slider(
                 "Few-shot Frames per Example",
                 min_value=1,
@@ -214,29 +277,43 @@ def main() -> None:
             selected_model = None
 
         # Get sample from database based on prompt type
-        with st.spinner(
-            f"Fetching sample {sample_id} from database (tier: {proposal_tier})..."
-        ):
-            if prompt_type == "sanity_check":
-                sample = dataset_manager.get_last_frame_sample(
+        with st.spinner(f"Fetching sample {sample_id} from database..."):
+            if prompt_type == "ranking":
+                sample = dataset_manager.get_ranking_sample(
+                    sample_id,
+                    1,  # Always use 1 frame for ranking prompts
+                    few_shot_count=few_shot_count,
+                    few_shot_frames=1,  # Always use 1 frame for ranking few-shot examples
+                )
+                st.success(f"Successfully loaded ranking sample {sample_id}")
+            elif prompt_type == "sanity_check":
+                sample = dataset_manager.get_sanity_check_sample(
                     sample_id,
                     proposal_tier,
                     few_shot_count=few_shot_count,
                 )
-            else:
-                sample = dataset_manager.get_sample(
+                st.success(
+                    f"Successfully loaded sanity check sample {sample_id} with tier {proposal_tier}"
+                )
+            else:  # binary
+                sample = dataset_manager.get_binary_sample(
                     sample_id,
-                    1,  # Only one interaction
+                    1,
                     proposal_tier,
                     few_shot_count=few_shot_count,
                     few_shot_frames=few_shot_frames,
                 )
+                st.success(
+                    f"Successfully loaded binary sample {sample_id} with tier {proposal_tier}"
+                )
 
-        st.success(f"Successfully loaded sample {sample_id} with tier {proposal_tier}")
+        # For ranking samples, display the arrangement of proposals and their ordering
+        if prompt_type == "ranking":
+            with st.expander("Ranking Sample Details", expanded=True):
+                display_ranking_info(st, sample)
 
         # Debug info about few-shot examples
-        if few_shot_count > 0:
-            assert sample.few_shot, "Few-shot examples should not be empty"
+        if few_shot_count > 0 and sample.few_shot:
             with st.expander(
                 f"Few-shot examples ({len(sample.few_shot)}/{few_shot_count} retrieved)"
             ):
@@ -284,7 +361,10 @@ def main() -> None:
 
         # Display messages
         st.subheader("Generated Messages")
-        st.caption(f"Showing prompt for {proposal_tier} proposal")
+        if prompt_type == "ranking":
+            st.caption("Showing ranking proposals")
+        else:
+            st.caption(f"Showing prompt for {proposal_tier} proposal")
 
         # Improved few-shot rendering logic
         if few_shot_count > 0 and sample.few_shot and len(sample.few_shot) > 0:
@@ -333,7 +413,7 @@ def main() -> None:
                         render_message(messages[i + 1])
                         if show_raw_messages:
                             with st.expander(
-                                f"Raw message: {messages[i+1].get('role')}",
+                                f"Raw message: {messages[i+1]}.get('role')",
                                 expanded=True,
                             ):
                                 display_raw_message(st, messages[i + 1])
@@ -391,6 +471,64 @@ def main() -> None:
                     with st.chat_message("assistant"):
                         st.write(response)
                     st.markdown("---")
+
+                    # For ranking prompts, provide a simple way to interpret the response
+                    if prompt_type == "ranking" and response:
+                        with st.expander("Response Analysis", expanded=True):
+                            st.write("Analyzing model response for ranking...")
+
+                            # Try to extract ranking from response
+                            try:
+                                # Look for patterns like [1,2,3,4] or 1,2,3,4
+                                import re
+
+                                # Look for sequences of digits possibly separated by commas or spaces
+                                rank_pattern = re.search(
+                                    r"(?:\[|\s|^)(\d+\s*[, ]\s*\d+\s*[, ]\s*\d+\s*[, ]\s*\d+)(?:\]|\s|$)",
+                                    response,
+                                )
+
+                                if rank_pattern:
+                                    ranking_str = rank_pattern.group(1)
+                                    # Clean up and convert to list of integers
+                                    ranking = [
+                                        int(x.strip())
+                                        for x in re.split(r"[,\s]+", ranking_str)
+                                        if x.strip()
+                                    ]
+
+                                    # Display extracted ranking
+                                    st.write(f"Extracted ranking: {ranking}")
+
+                                    assert isinstance(sample, RankingSampleData)
+                                    correct_ranking = sample.metadata.correct_ranking
+                                    st.write(
+                                        f"Expected ranking: {[i+1 for i in range(len(correct_ranking))]}"
+                                    )
+
+                                    # Calculate simple accuracy (how many positions are correct)
+                                    if len(ranking) == len(correct_ranking):
+                                        correct_positions = sum(
+                                            1
+                                            for a, b in zip(
+                                                ranking,
+                                                [
+                                                    i + 1
+                                                    for i in range(len(correct_ranking))
+                                                ],
+                                            )
+                                            if a == b
+                                        )
+                                        accuracy = correct_positions / len(ranking)
+                                        st.write(
+                                            f"Ranking accuracy: {accuracy:.2f} ({correct_positions}/{len(ranking)} correct positions)"
+                                        )
+                                else:
+                                    st.warning(
+                                        "Couldn't extract clear ranking from the response"
+                                    )
+                            except Exception as e:
+                                st.error(f"Error analyzing response: {str(e)}")
 
                 except Exception as e:
                     st.error(f"Error sending messages to {selected_model}: {str(e)}")
