@@ -1,10 +1,16 @@
+import base64
+import os
 from typing import Any
 
 import streamlit as st
 from loguru import logger
 
+# Add import for interactive evaluation
+from src.evaluation.interactive_eval import (
+    evaluate_interactive_response,
+    generate_feedback_message,
+)
 from src.managers import DatasetManager, MongoDBManager, PromptManager
-from src.utils.db_schemas import RankingSampleData
 from src.utils.vlm_client import VLMClient
 
 
@@ -157,9 +163,113 @@ def display_ranking_info(container, sample) -> None:
         container.warning("This is not a properly formatted ranking sample")
 
 
+def display_interactive_evaluation(
+    response: str, puzzle: dict, attempt_number: int = 1
+) -> tuple[str, list | None]:
+    """
+    Display the evaluation of an interactive response including simulation results.
+
+    Args:
+        response: The LLM's response text
+        puzzle: The puzzle definition
+        attempt_number: Current attempt number (1-5)
+
+    Returns:
+        Tuple of (status, screenshots or None)
+    """
+    st.write("Running physics simulation to evaluate response...")
+
+    # Call the evaluation function with 5 screenshots
+    result = evaluate_interactive_response(
+        response=response,
+        puzzle=puzzle,
+        visualize=False,  # No visual window needed in Streamlit
+        num_screenshots=5,  # Capture 5 screenshots during simulation
+    )
+
+    # Display status and message
+    status_color = "green" if result.status == "GOAL_REACHED" else "red"
+    st.markdown(
+        f"**Status:** <span style='color:{status_color}'>{result.status}</span>",
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"**Message:** {result.message}")
+
+    # Display ball data if available
+    if result.ball_data:
+        st.subheader("Ball Placement")
+        cols = st.columns(3)
+        cols[0].metric("X Position", f"{float(result.ball_data.get('x', 0)):.2f}")
+        cols[1].metric("Y Position", f"{float(result.ball_data.get('y', 0)):.2f}")
+        cols[2].metric("Radius", f"{float(result.ball_data.get('radius', 0)):.2f}")
+
+    st.subheader("Simulation Screenshots")
+
+    # Validate screenshots before proceeding
+    screenshots = []
+    if result.screenshots:
+        # Filter only valid screenshot file paths
+        screenshots = [
+            path
+            for path in result.screenshots
+            if isinstance(path, str) and os.path.isfile(path)
+        ]
+
+        if not screenshots:
+            st.warning("No valid screenshots were generated during simulation")
+    else:
+        st.warning("No screenshots were generated during simulation")
+        return (
+            result.status,
+            None,
+            generate_feedback_message(result.status, attempt_number, None),
+        )
+
+    # Select only 5 frames using compute_frame_indices
+    from src.managers.dataset_manager import DatasetManager
+
+    # Get indices for 5 frames
+    num_screenshots = len(screenshots)
+    if num_screenshots > 5:
+        # Use DatasetManager's compute_frame_indices to select 5 frames
+        dataset_mgr = DatasetManager(None)
+        indices = dataset_mgr.compute_frame_indices(num_screenshots, 5)
+        selected_screenshots = [screenshots[i] for i in indices]
+    else:
+        selected_screenshots = screenshots
+
+    # Create a single row of columns for all screenshots
+    if selected_screenshots:
+        cols = st.columns(len(selected_screenshots))
+
+        # Display each screenshot with caption
+        for i, screenshot in enumerate(selected_screenshots):
+            with cols[i]:
+                try:
+                    st.image(
+                        screenshot, caption=f"Frame {i+1}", use_container_width=True
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to display screenshot: {str(e)}")
+                    st.error(f"Error displaying frame {i+1}")
+    else:
+        st.warning("No valid screenshots to display")
+
+    # Display summary message based on status
+    if result.status == "GOAL_REACHED":
+        st.success("✅ Goal successfully reached with the proposed ball placement!")
+    else:
+        st.error("❌ The proposed ball placement did not solve the puzzle.")
+
+    # Generate the feedback message for the next turn
+    feedback = generate_feedback_message(result.status, attempt_number, screenshots)
+
+    return result.status, screenshots, feedback
+
+
 def main() -> None:
     st.set_page_config(
-        page_title="PhysIQ Prompt Visualizer",
+        page_title="PhysIQ Prompt Tester",
         page_icon="🧠",
         layout="wide",
     )
@@ -188,7 +298,7 @@ def main() -> None:
 
         prompt_type = st.sidebar.selectbox(
             "Prompt Type",
-            options=["sanity_check", "binary", "ranking"],  # Added "ranking"
+            options=["sanity_check", "ranking", "binary", "confidence", "interactive"],
             index=0,
         )
 
@@ -219,7 +329,7 @@ def main() -> None:
 
         # Add proposal tier selection - only show if not using ranking mode
         proposal_tier = "CORRECT"  # Default value
-        if prompt_type != "ranking":
+        if prompt_type not in ["ranking", "interactive"]:
             proposal_tier = st.sidebar.selectbox(
                 "Proposal Tier",
                 options=[
@@ -231,16 +341,18 @@ def main() -> None:
                 index=0,  # Default to CORRECT
             )
 
-        few_shot_count = st.sidebar.slider(
-            "Few-shot Examples",
-            min_value=0,
-            max_value=4,
-            value=1,
-        )
+        few_shot_count = 0
+        if prompt_type not in ["confidence", "interactive"]:
+            few_shot_count = st.sidebar.slider(
+                "Few-shot Examples",
+                min_value=0,
+                max_value=4,
+                value=1,
+            )
 
-        # Only show few_shot_frames slider when not in sanity_check or ranking mode
+        # Only show few_shot_frames slider when not in sanity_check, ranking, confidence, or interactive mode
         few_shot_frames = 1  # Default value
-        if prompt_type not in ["sanity_check", "ranking"]:
+        if prompt_type not in ["sanity_check", "ranking", "confidence", "interactive"]:
             few_shot_frames = st.sidebar.slider(
                 "Few-shot Frames per Example",
                 min_value=1,
@@ -268,7 +380,7 @@ def main() -> None:
             selected_model = st.sidebar.selectbox(
                 "Select Model",
                 options=available_models,
-                index=0 if available_models else None,
+                index=2 if available_models else None,
             )
         else:
             st.sidebar.warning(
@@ -283,7 +395,6 @@ def main() -> None:
                     sample_id,
                     1,  # Always use 1 frame for ranking prompts
                     few_shot_count=few_shot_count,
-                    few_shot_frames=1,  # Always use 1 frame for ranking few-shot examples
                 )
                 st.success(f"Successfully loaded ranking sample {sample_id}")
             elif prompt_type == "sanity_check":
@@ -295,6 +406,21 @@ def main() -> None:
                 st.success(
                     f"Successfully loaded sanity check sample {sample_id} with tier {proposal_tier}"
                 )
+            elif prompt_type == "confidence":
+                # Use binary sample retrieval but force few_shot_count to 0
+                sample = dataset_manager.get_binary_sample(
+                    sample_id,
+                    1,
+                    proposal_tier,
+                    few_shot_count=0,  # Force no few-shot examples for confidence
+                    few_shot_frames=1,
+                )
+                st.success(
+                    f"Successfully loaded confidence sample {sample_id} with tier {proposal_tier}"
+                )
+            elif prompt_type == "interactive":
+                sample = dataset_manager.get_interactive_sample(sample_id)
+                st.success(f"Successfully loaded interactive sample {sample_id}")
             else:  # binary
                 sample = dataset_manager.get_binary_sample(
                     sample_id,
@@ -441,6 +567,7 @@ def main() -> None:
                             f"Raw message: {messages[i].get('role')}", expanded=True
                         ):
                             display_raw_message(st, messages[i])
+
         else:
             # No few-shot examples requested, just show all messages sequentially
             for i, msg in enumerate(messages):
@@ -453,17 +580,64 @@ def main() -> None:
         if vlm_client.is_configured() and selected_model:
             st.subheader("Send to Vision Language Model")
 
+            # Create session state for tracking interactive mode state
+            if "interactive_attempt" not in st.session_state:
+                st.session_state.interactive_attempt = 1
+
+            if "interactive_messages" not in st.session_state:
+                st.session_state.interactive_messages = []
+
+            if "interactive_status" not in st.session_state:
+                st.session_state.interactive_status = None
+
+            if "interactive_completed" not in st.session_state:
+                st.session_state.interactive_completed = False
+
+            # Display attempts counter for interactive mode
+            if prompt_type == "interactive":
+                st.write(f"Current attempt: {st.session_state.interactive_attempt}/5")
+
+                # Show reset button if we've already started
+                if st.session_state.interactive_attempt > 1:
+                    if st.button("Reset Interactive Session"):
+                        st.session_state.interactive_attempt = 1
+                        st.session_state.interactive_messages = []
+                        st.session_state.interactive_status = None
+                        st.session_state.interactive_completed = False
+                        st.rerun()
+
             send_col, spinner_col = st.columns([1, 3])
             with send_col:
                 send_button = st.button(
-                    f"Send to {selected_model}", use_container_width=True
+                    f"Send to {selected_model}",
+                    use_container_width=True,
+                    disabled=st.session_state.interactive_completed,
                 )
 
             if send_button:
                 try:
+                    # For interactive mode that's already in progress, we need to add the previous feedback
+                    if (
+                        prompt_type == "interactive"
+                        and st.session_state.interactive_attempt > 1
+                    ):
+                        # Create a copy of the original messages
+                        updated_messages = messages.copy()
+
+                        # Add all the previous interactions from session state
+                        for prev_msg in st.session_state.interactive_messages:
+                            updated_messages.append(prev_msg)
+
+                        # Use the updated messages instead of the original ones
+                        messages_to_send = updated_messages
+                    else:
+                        messages_to_send = messages
+
                     with spinner_col:
                         with st.spinner(f"Sending to {selected_model}..."):
-                            response = vlm_client.send_message(messages, selected_model)
+                            response = vlm_client.send_message(
+                                messages_to_send, selected_model
+                            )
 
                     # Display model response
                     st.subheader("Model Response")
@@ -472,63 +646,136 @@ def main() -> None:
                         st.write(response)
                     st.markdown("---")
 
-                    # For ranking prompts, provide a simple way to interpret the response
-                    if prompt_type == "ranking" and response:
-                        with st.expander("Response Analysis", expanded=True):
-                            st.write("Analyzing model response for ranking...")
+                    # Handle interactive evaluation if in interactive mode
+                    if (
+                        prompt_type == "interactive"
+                        and not st.session_state.interactive_completed
+                    ):
+                        # Store the model response in session state
+                        assistant_msg = {"role": "assistant", "content": response}
+                        st.session_state.interactive_messages.append(assistant_msg)
 
-                            # Try to extract ranking from response
-                            try:
-                                # Look for patterns like [1,2,3,4] or 1,2,3,4
-                                import re
+                        # Process the response only if we haven't reached max attempts
+                        if st.session_state.interactive_attempt <= 5:
+                            st.subheader(
+                                f"Evaluation - Attempt {st.session_state.interactive_attempt}"
+                            )
 
-                                # Look for sequences of digits possibly separated by commas or spaces
-                                rank_pattern = re.search(
-                                    r"(?:\[|\s|^)(\d+\s*[, ]\s*\d+\s*[, ]\s*\d+\s*[, ]\s*\d+)(?:\]|\s|$)",
+                            # Evaluate the response
+                            status, screenshots, feedback = (
+                                display_interactive_evaluation(
                                     response,
+                                    sample.puzzle.model_dump(),
+                                    st.session_state.interactive_attempt,
                                 )
+                            )
 
-                                if rank_pattern:
-                                    ranking_str = rank_pattern.group(1)
-                                    # Clean up and convert to list of integers
-                                    ranking = [
-                                        int(x.strip())
-                                        for x in re.split(r"[,\s]+", ranking_str)
-                                        if x.strip()
-                                    ]
+                            # Store the status
+                            st.session_state.interactive_status = status
 
-                                    # Display extracted ranking
-                                    st.write(f"Extracted ranking: {ranking}")
-
-                                    assert isinstance(sample, RankingSampleData)
-                                    correct_ranking = sample.metadata.correct_ranking
-                                    st.write(
-                                        f"Expected ranking: {[i+1 for i in range(len(correct_ranking))]}"
+                            # If goal reached or max attempts reached, mark as completed
+                            if (
+                                status == "GOAL_REACHED"
+                                or st.session_state.interactive_attempt >= 5
+                            ):
+                                st.session_state.interactive_completed = True
+                                if status == "GOAL_REACHED":
+                                    st.success(
+                                        "🎉 Success! The puzzle has been solved."
                                     )
-
-                                    # Calculate simple accuracy (how many positions are correct)
-                                    if len(ranking) == len(correct_ranking):
-                                        correct_positions = sum(
-                                            1
-                                            for a, b in zip(
-                                                ranking,
-                                                [
-                                                    i + 1
-                                                    for i in range(len(correct_ranking))
-                                                ],
-                                            )
-                                            if a == b
-                                        )
-                                        accuracy = correct_positions / len(ranking)
-                                        st.write(
-                                            f"Ranking accuracy: {accuracy:.2f} ({correct_positions}/{len(ranking)} correct positions)"
-                                        )
                                 else:
-                                    st.warning(
-                                        "Couldn't extract clear ranking from the response"
-                                    )
-                            except Exception as e:
-                                st.error(f"Error analyzing response: {str(e)}")
+                                    st.warning("Maximum number of attempts reached.")
+                            else:
+                                # Prepare for next attempt
+                                st.subheader("Next Attempt")
+
+                                # Create user message with feedback
+                                user_content = []
+
+                                # Add text feedback
+                                user_content.append({"type": "text", "text": feedback})
+
+                                # If we have screenshots and status is GOAL_NOT_REACHED,
+                                # add them to the feedback message
+                                if status == "GOAL_NOT_REACHED" and screenshots:
+                                    # Replace the [IMAGE:x] placeholders with actual images
+                                    for i, screenshot in enumerate(screenshots[:5]):
+                                        try:
+                                            # Check if screenshot is a valid file path
+                                            if isinstance(
+                                                screenshot, str
+                                            ) and os.path.isfile(screenshot):
+                                                with open(screenshot, "rb") as f:
+                                                    img_data = f.read()
+                                                    encoded_img = base64.b64encode(
+                                                        img_data
+                                                    ).decode("utf-8")
+                                                    user_content.append(
+                                                        {
+                                                            "type": "image_url",
+                                                            "image_url": {
+                                                                "url": f"data:image/png;base64,{encoded_img}",
+                                                                "detail": "high",
+                                                            },
+                                                        }
+                                                    )
+                                            else:
+                                                logger.error(
+                                                    f"Screenshot is not a valid file path: {screenshot}"
+                                                )
+                                                st.warning(
+                                                    f"Could not process screenshot {i+1}"
+                                                )
+                                        except Exception as e:
+                                            logger.error(
+                                                f"Failed to process screenshot: {e}"
+                                            )
+                                            st.warning(
+                                                f"Failed to process screenshot {i+1}: {str(e)}"
+                                            )
+
+                                # Create the user message with feedback
+                                user_msg = {"role": "user", "content": user_content}
+
+                                # Add to interactive messages
+                                st.session_state.interactive_messages.append(user_msg)
+
+                                # Display the feedback to the user
+                                with st.chat_message("user"):
+                                    st.write(feedback)
+
+                                    # Show images if we have them
+                                    if status == "GOAL_NOT_REACHED" and screenshots:
+                                        # Create columns for the screenshots
+                                        cols = st.columns(min(5, len(screenshots)))
+                                        for i, screenshot in enumerate(screenshots[:5]):
+                                            with cols[i]:
+                                                # Add error handling here too
+                                                try:
+                                                    if isinstance(
+                                                        screenshot, str
+                                                    ) and os.path.isfile(screenshot):
+                                                        st.image(
+                                                            screenshot,
+                                                            caption=f"Frame {i+1}",
+                                                            use_container_width=True,
+                                                        )
+                                                    else:
+                                                        st.warning(
+                                                            f"Invalid screenshot {i+1}"
+                                                        )
+                                                except Exception as e:
+                                                    st.warning(
+                                                        f"Failed to display screenshot {i+1}: {str(e)}"
+                                                    )
+
+                                # Increment the attempt counter
+                                st.session_state.interactive_attempt += 1
+
+                                # Provide button to continue the interaction
+                                st.button("Continue to next attempt", on_click=st.rerun)
+
+                    # ...remaining code for ranking prompts, etc.
 
                 except Exception as e:
                     st.error(f"Error sending messages to {selected_model}: {str(e)}")
@@ -546,10 +793,8 @@ def main() -> None:
         """
         This tool helps visualize how different prompt types will appear 
         when sent to an LLM for physics simulation analysis.
-        
         Select different prompt types and options to see how they affect 
         the generated messages.
-        
         You can also send the prompt to various Vision Language Models using
         the OpenRouter integration.
         """

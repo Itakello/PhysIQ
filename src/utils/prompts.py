@@ -5,9 +5,20 @@ from src.utils.const import (
     DEFAULT_Y_GRAVITY,
     FPS,
     GOAL_COLLISIONS_REQUIRED,
+    MAX_RADIUS,
     MAX_STEPS,
+    MIN_RADIUS,
+    SCENE_DIMENSIONS,
     TIME_SCALE,
 )
+
+# Interactive evaluation status codes
+INTERACTIVE_STATUSES = {
+    "OUTSIDE_BOUNDARIES",
+    "OVERLAPPING",
+    "GOAL_NOT_REACHED",
+    "GOAL_REACHED",
+}
 
 SIMULATION_CONDITIONS = """Simulation conditions for all tasks:
 - Gravity: {DEFAULT_Y_GRAVITY} m/s² (downward)
@@ -27,6 +38,8 @@ SIMULATION_CONDITIONS = """Simulation conditions for all tasks:
     CONTACT_DURATION=int((GOAL_COLLISIONS_REQUIRED / (FPS * TIME_SCALE)) / 2),
 )
 
+CONTACT_DURATION = int((GOAL_COLLISIONS_REQUIRED / (FPS * TIME_SCALE)) / 2)
+
 # System prompts differentiated by reasoning approach
 SYSTEM_TEMPLATES = {
     "sanity_check": """You are a physics expert analyzing object interactions in physics simulations.
@@ -34,37 +47,86 @@ SYSTEM_TEMPLATES = {
 **Task**: You will receive an image depicting the current state of a simulation. Determine if the specified objects are currently in contact.
 
 **Response format**: Answer clearly and exclusively with "Yes" or "No".""",
-    "binary": """You are a physics expert analyzing object interactions in physics simulations.
+    "binary": f"""You are a physics expert analyzing object interactions in physics simulations.
 
 {SIMULATION_CONDITIONS}
 
 **Task:** Given an initial image of a physics simulation, predict whether the specified objects will come into contact for the required duration.
 
-**Response format:** Answer clearly and exclusively with "Yes" or "No".""".format(
-        SIMULATION_CONDITIONS=SIMULATION_CONDITIONS,
-    ),
-    "ranking": """You are a physics expert analyzing physics simulations.
+**Response format:** Answer clearly and exclusively with "Yes" or "No".""",
+    "ranking": f"""You are a physics expert analyzing physics simulations.
 
 {SIMULATION_CONDITIONS}
 
 **Task:** You will receive 4 images, each depicting a different proposal for solving the puzzle. Rank the proposals clearly based on their likelihood of satisfying the goal, from highest likelihood (first) to lowest likelihood (last).
 
 **Response format:** List proposal indices in order from highest to lowest likelihood (e.g., `[3, 1, 4, 2]`).
-""".format(
-        SIMULATION_CONDITIONS=SIMULATION_CONDITIONS,
-    ),
+""",
+    "confidence": f"""You are a physics expert estimating the probability that specific outcomes in physics simulations will occur.
+
+{SIMULATION_CONDITIONS}
+
+**Task:** Given an initial image, estimate the probability that the specified objective is successfully achieved.
+
+**Response format:** Provide your answer strictly as a numerical percentage (e.g., "85%").""",
+    "interactive": f"""You are a physics expert creating solutions for physics simulations.
+
+{SIMULATION_CONDITIONS}
+
+**Task:**
+Your objective is to place a new ball inside the simulation area to achieve the specified goal.
+Clearly define your solution by specifying:
+- "x": horizontal position of the ball center (0 is left, maximum is {SCENE_DIMENSIONS[0]} on the right)
+- "y": vertical position of the ball center (0 is bottom, maximum is {SCENE_DIMENSIONS[1]} at the top)
+- "radius": size of the ball (minimum {MIN_RADIUS}, maximum {MAX_RADIUS})
+
+**Important rules for placing the ball:**
+- The ball **must remain fully within the visible simulation boundaries**.
+- The ball **cannot overlap with existing objects**.
+
+**Response format (always follow exactly):**
+Provide your solution strictly in the following JSON format:
+
+```json
+{{
+  "x": "<x-coordinate>",
+  "y": "<y-coordinate>",
+  "radius": "<ball_radius>"
+}}
+```""",
 }
 
 # User prompt templates for different levels of instruction detail
 USER_TEMPLATES = {
     "sanity_check": "Based on the current state, are the <TARGET_OBJ1> and <TARGET_OBJ2> in contact?",
-    "binary": "Will the <TARGET_OBJ1> and <TARGET_OBJ2> come into contact for {CONTACT_DURATION} seconds?".format(
-        CONTACT_DURATION=int((GOAL_COLLISIONS_REQUIRED / (FPS * TIME_SCALE)) / 2),
-    ),
-    "ranking": """Will the <TARGET_OBJ1> and <TARGET_OBJ2> come into contact for {CONTACT_DURATION} seconds?
+    "binary": f"Will the <TARGET_OBJ1> and <TARGET_OBJ2> come into contact for {CONTACT_DURATION} seconds?",
+    "ranking": f"""Will the <TARGET_OBJ1> and <TARGET_OBJ2> come into contact for {CONTACT_DURATION} seconds?
 
 Rank the following proposals by their likelihood of success:
-""".format(
-        CONTACT_DURATION=int((GOAL_COLLISIONS_REQUIRED / (FPS * TIME_SCALE)) / 2),
-    ),
+""",
+    "confidence": f"""What is the probability that the <TARGET_OBJ1> and <TARGET_OBJ2> will come into contact for {CONTACT_DURATION} seconds?
+
+Answer:""",
+    "interactive": "Try 1:",
+}
+
+# Interactive response templates for different evaluation outcomes
+INTERACTIVE_RESPONSE_TEMPLATES = {
+    "OUTSIDE_BOUNDARIES": """Your previous proposal couldn't be applied.
+**Reason**: Your ball exceeds the simulation boundaries.
+**Try again**, ensuring he ball fits entirely within the boundaries (0 ≤ x ≤ 256, 0 ≤ y ≤ 256). Provide a new proposal strictly in the same JSON format.
+Try {attempt}:""",
+    "OVERLAPPING": """Your previous proposal couldn't be applied.
+**Reason**: Your ball overlaps existing objects.
+**Try again**, ensuring the ball does not overlap with any other object. Provide a new proposal strictly in the same JSON format.
+Try {attempt}:""",
+    "GOAL_NOT_REACHED": """The simulation ran successfully, but your proposal didn't achieve the goal.
+Review the following 5 simulation frames showing how your previous proposal evolved:
+
+[Image frames will appear here]
+
+Carefully analyze the frames and **try again**. Provide a new proposal strictly in the same JSON format.
+Try {attempt}:""",
+    "GOAL_REACHED": """Congratulations! Your proposal successfully achieved the goal.
+The simulation shows that the target objects came into contact as required.""",
 }

@@ -27,7 +27,7 @@ class DatasetManager:
 
     def __init__(
         self,
-        db_manager: MongoDBManager,
+        db_manager: MongoDBManager | None,
         images_base_dir: str | Path = "images",
     ) -> None:
         """
@@ -141,7 +141,6 @@ class DatasetManager:
         puzzle_id: str,
         num_frames: int,
         few_shot_count: int = 0,
-        few_shot_frames: int = 2,
     ) -> RankingSampleData:
         """
         Retrieve a puzzle and all its proposals (correct, incorrect_easy, medium, hard)
@@ -222,7 +221,7 @@ class DatasetManager:
         few_shot_samples = []
         if few_shot_count > 0:
             few_shot_samples = self._get_ranking_few_shot_samples(
-                few_shot_count, puzzle_id, few_shot_frames
+                few_shot_count, puzzle_id
             )
 
         # Create a list of RankingProposalItem objects
@@ -240,7 +239,7 @@ class DatasetManager:
 
         # Create metadata
         ranking_metadata = RankingMetadata(
-            correct_ranking=correct_ranking, proposal_tiers=shuffled_tiers
+            correct_ranking=correct_ranking, proposal_tiers=shuffled_tiers  # type: ignore
         )
 
         # Return using the first proposal for backward compatibility with standard SampleData fields
@@ -252,13 +251,78 @@ class DatasetManager:
             images=shuffled_images_list[
                 0
             ],  # Using first as primary (for compatibility)
-            few_shot=few_shot_samples,
+            few_shot=few_shot_samples,  # type: ignore
             proposals=ranking_proposals,
             metadata=ranking_metadata,
         )
 
+    def get_interactive_sample(
+        self,
+        puzzle_id: str,
+    ) -> SampleData:
+        """
+        Retrieve a puzzle for interactive solving, showing only the initial state without proposals.
+
+        Args:
+            puzzle_id: The puzzle identifier, e.g. "00012:001"
+
+        Returns:
+            A SampleData object containing the puzzle and its base image.
+        """
+        # 1) Retrieve puzzle
+        puzzle = self.db_manager.get_puzzle_by_id(puzzle_id)
+        if not puzzle:
+            raise ValueError(f"No puzzle found with id={puzzle_id}")
+
+        # For interactive prompts, we need the original puzzle image without proposals
+        images = []
+        if puzzle.image_path:
+            image_path = Path(puzzle.image_path)
+            if image_path.exists():
+                images = [str(image_path)]
+            else:
+                # Try with base directory prefix
+                full_path = self.images_base_dir / image_path
+                if full_path.exists():
+                    images = [str(full_path)]
+                else:
+                    logger.warning(
+                        f"Puzzle image not found at {image_path} or {full_path}"
+                    )
+
+        if not images:
+            logger.warning(
+                f"No image found for puzzle {puzzle_id}, using CORRECT proposal instead"
+            )
+            # Fall back to using the first frame of a CORRECT proposal if puzzle image isn't available
+            proposal = self.db_manager.get_proposal(puzzle_id, "CORRECT")
+            if proposal:
+                images = self._retrieve_images(proposal.image_path, 1)
+            else:
+                raise ValueError(f"No images available for puzzle {puzzle_id}")
+
+        # Since we only need the puzzle, we'll use a placeholder proposal
+        # The UI will ignore this for interactive prompts
+        placeholder_proposal = self.db_manager.get_proposal(puzzle_id, "CORRECT")
+        if not placeholder_proposal:
+            # If no CORRECT proposal exists, just use any available proposal
+            proposals = list(
+                self.db_manager.db["proposals"].find({"id": puzzle_id}).limit(1)
+            )
+            if proposals:
+                placeholder_proposal = ProposalSchema(**proposals[0])
+            else:
+                raise ValueError(f"No proposals found for puzzle_id={puzzle_id}")
+
+        return SampleData(
+            puzzle=puzzle,
+            proposal=placeholder_proposal,
+            images=images,
+            few_shot=None,  # No few-shot for interactive mode
+        )
+
     def _get_ranking_few_shot_samples(
-        self, few_shot_count: int, current_puzzle_id: str, few_shot_frames: int = 2
+        self, few_shot_count: int, current_puzzle_id: str
     ) -> list[RankingFewShotData]:
         """
         Create few-shot examples specifically for ranking tasks.
@@ -460,7 +524,7 @@ class DatasetManager:
             return [str(x) for x in all_images]
 
         # Otherwise, pick frames from start, middle, end
-        indices = self._compute_frame_indices(len(all_images), num_frames)
+        indices = self.compute_frame_indices(len(all_images), num_frames)
         all_images = sorted(all_images, key=lambda x: int(x.stem))
         logger.debug(
             f"Selected indices: {indices}\tNumber of images: {len(all_images)}"
@@ -503,7 +567,7 @@ class DatasetManager:
         # Return only the last image
         return [str(all_images[-1])]
 
-    def _compute_frame_indices(self, total: int, num_frames: int) -> list[int]:
+    def compute_frame_indices(self, total: int, num_frames: int) -> list[int]:
         """
         Utility for picking (start, middle..., end) frames from a list of length 'total'.
         E.g. if total=10, num_frames=3 => [0, 4, 9]

@@ -7,8 +7,8 @@ from src.utils.db_schemas import (
     FewShotData,
     PuzzleSchema,
     RankingFewShotData,
-    SampleData,
     RankingSampleData,
+    SampleData,
 )
 from src.utils.prompts import SYSTEM_TEMPLATES, USER_TEMPLATES
 
@@ -103,8 +103,8 @@ class PromptManager:
             }
         ]
 
-        # 2. Add few-shot examples if requested
-        if insert_few_shot and sample.few_shot:
+        # 2. Add few-shot examples if requested and not in interactive mode
+        if insert_few_shot and sample.few_shot and self.prompt_type != "interactive":
             for fs_example in sample.few_shot:
                 few_shot_messages = self._create_few_shot_messages(fs_example)
                 messages.extend(few_shot_messages)
@@ -156,6 +156,25 @@ class PromptManager:
                         )
                 # Add the question after the images
                 user_content.append({"type": "text", "text": question})
+        elif self.prompt_type == "interactive":
+            # For interactive prompts, just show the puzzle image without proposals
+            # and ask for placement coordinates
+            for image_path in sample.images:
+                with open(image_path, "rb") as f:
+                    img_data = f.read()
+                    encoded_img = base64.b64encode(img_data).decode("utf-8")
+                    user_content.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{encoded_img}",
+                                "detail": "high",
+                            },
+                        }
+                    )
+
+            # Add the interactive task instruction
+            user_content.append({"type": "text", "text": question})
         else:
             # Regular prompt flow for non-ranking prompts
             # Add the main sample images

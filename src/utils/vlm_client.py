@@ -12,9 +12,9 @@ class VLMClient:
     PROVIDERS = {
         "OpenAI": ["openai/gpt-4o", "openai/o1", "openai/o1-mini"],
         "Google": [
-            "google/gemini-2.0-flash-lite-001",
             "google/gemini-2.0-pro-exp-02-05:free",
             "google/gemini-2.0-flash-thinking-exp:free",
+            "google/gemini-2.0-flash-lite-001",
         ],
         "Anthropic": [
             "anthropic/claude-3.7-sonnet",
