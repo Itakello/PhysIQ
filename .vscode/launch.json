@@ -101,26 +101,41 @@
             ]
         },
         {
-            "name": "5- Non interactive evaluation",
+            "name": "5 - Interactive Evaluation",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scripts.5_interactive_evaluation",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--start_template",
+                "0",
+                "--stop_template",
+                "5",
+                "--iterations",
+                "2",
+                "--db_name",
+                "physiq_db",
+                "--evaluation_types",
+                "sanity_check",
+                "--models",
+                "google/gemini-2.0-flash-thinking-exp:free",
+                "--few_shot_count",
+                "1",
+                "--output_dir",
+                "evaluation_results"
+            ]
+        },
+        {
+            "name": "5 - Non-interactive Evaluation",
             "type": "debugpy",
             "request": "launch",
             "module": "scripts.5_non_interactive_evaluation",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "args": [
-                //"--start_template",
-                //"16",
-                //"--stop_template",
-                //"16",
-                //"--start_iteration",
-                //"20",
-                //"--iterations",
-                //"2",
                 "--db_name",
-                "physiq_db",
-                //"--visualize",
-                //"--debug",
-                //"--save_to_db"
+                "physiq_db"
             ]
         },
         {

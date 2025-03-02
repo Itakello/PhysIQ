@@ -12,7 +12,6 @@ from src.evaluation.interactive_eval import (
     generate_feedback_message,
 )
 from src.managers import DatasetManager, MongoDBManager, PromptManager
-from src.utils.prompts import INTERACTIVE_RESPONSE_TEMPLATES
 from src.utils.vlm_client import VLMClient
 
 

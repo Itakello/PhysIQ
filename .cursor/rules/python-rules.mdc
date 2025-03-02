@@ -1,7 +1,7 @@
 ---
 description: 
 globs: *.py
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Your rule content

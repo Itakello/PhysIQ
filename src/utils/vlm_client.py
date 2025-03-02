@@ -1,6 +1,7 @@
 import os
-from typing import Any, cast
+from typing import Any, Dict, List, Optional, cast
 
+import weave
 from loguru import logger
 from openai import OpenAI
 
@@ -42,6 +43,9 @@ class VLMClient:
                 api_key=self.api_key,
             )
 
+        # Initialize Weave model registry
+        self.weave_models = {}
+
     def is_configured(self) -> bool:
         """Check if the client is properly configured with an API key."""
         return self.api_key is not None and self.client is not None
@@ -54,9 +58,28 @@ class VLMClient:
         """Get the list of all providers."""
         return list(self.PROVIDERS.keys())
 
+    def get_or_create_weave_model(self, model_name: str) -> weave.Model:
+        """
+        Get or create a Weave model for tracking and evaluation.
+
+        Args:
+            model_name: The name of the model to get or create
+
+        Returns:
+            A Weave model instance
+        """
+        if model_name not in self.weave_models:
+            # Create a new Weave model and register it
+            self.weave_models[model_name] = weave.Model(
+                name=model_name, description=f"OpenRouter model: {model_name}"
+            )
+
+        return self.weave_models[model_name]
+
     def send_message(self, messages: list[dict[str, Any]], model: str) -> str:
         """
         Send messages to the selected model and return the response.
+        Uses Weave to track the prompt and response.
 
         Args:
             messages: List of message dictionaries in OpenAI format
@@ -71,11 +94,31 @@ class VLMClient:
         if not self.is_configured():
             raise ValueError("OpenRouter API key is not configured")
 
+        # Get or create a Weave model for this model
+        weave_model = self.get_or_create_weave_model(model)
+
         try:
-            completion = cast(OpenAI, self.client).chat.completions.create(
-                model=model, messages=messages  # type: ignore
-            )
-            return str(completion.choices[0].message.content)
+            # Track the model call with Weave
+            with weave_model.trace(messages=messages) as trace:
+                completion = cast(OpenAI, self.client).chat.completions.create(
+                    model=model, messages=messages  # type: ignore
+                )
+
+                response_text = str(completion.choices[0].message.content)
+
+                # Add response to the trace
+                trace.output = response_text
+
+                # Record metadata about the API call
+                trace.add_metadata(
+                    {
+                        "model": model,
+                        "num_messages": len(messages),
+                        "response_length": len(response_text),
+                    }
+                )
+
+                return response_text
         except Exception as e:
             logger.error(f"Error calling OpenRouter API: {str(e)}")
             raise

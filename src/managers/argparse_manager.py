@@ -94,6 +94,90 @@ class ArgparseManager(BaseManager):
             "--templates_type", type=str, default="PHYRE", choices=["PHYRE", "TEST"]
         )
 
+    def add_evaluation_args(self, default_output_dir: str = "results") -> None:
+        """Add evaluation-specific arguments.
+
+        Args:
+            default_output_dir: Default directory to save evaluation results
+        """
+        self.parser.add_argument(
+            "--models",
+            type=str,
+            nargs="+",
+            help="Models to evaluate (can specify multiple)",
+            default=["openai/gpt-4o"],
+        )
+
+        self.parser.add_argument(
+            "--start_template",
+            type=int,
+            default=0,
+            help="First template ID to evaluate",
+        )
+
+        self.parser.add_argument(
+            "--stop_template", type=int, default=10, help="Last template ID to evaluate"
+        )
+
+        self.parser.add_argument(
+            "--iterations",
+            type=int,
+            default=5,
+            help="Number of iterations per template (max 20)",
+            choices=range(0, 21),
+        )
+
+        self.parser.add_argument(
+            "--evaluation_types",
+            type=str,
+            nargs="+",
+            choices=["binary", "ranking", "sanity_check", "interactive", "all"],
+            default=["binary"],
+            help="Types of evaluation to run",
+        )
+
+        self.parser.add_argument(
+            "--few_shot_count",
+            type=int,
+            default=1,
+            help="Number of few-shot examples to include",
+            choices=range(0, 5),
+        )
+
+        self.parser.add_argument(
+            "--few_shot_frames",
+            type=int,
+            default=1,
+            help="Number of frames per few-shot example",
+            choices=range(1, 6),
+        )
+
+        self.parser.add_argument(
+            "--output_dir",
+            type=str,
+            default=default_output_dir,
+            help="Directory to save evaluation results",
+        )
+
+    def add_weave_args(self, default_project: str = "physiq-evaluations") -> None:
+        """Add Weights & Biases tracking arguments.
+
+        Args:
+            default_project: Default project name for W&B tracking
+        """
+        self.parser.add_argument(
+            "--use_weave",
+            action="store_true",
+            help="Track results with Weave",
+            default=True,  # Enable by default
+        )
+        self.parser.add_argument(
+            "--weave_project",
+            type=str,
+            default=default_project,
+            help="Weave project name",
+        )
+
     def add_io_args(
         self, input_folder: str | None = None, output_folder: str | None = None
     ) -> None:
