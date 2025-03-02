@@ -1,35 +1,98 @@
 import base64
+import inspect
 import os
-from typing import Any
+import pprint
+from typing import Any, List, Literal, TypedDict, Union
 
 import streamlit as st
 from loguru import logger
 
-# Add import for interactive evaluation
 from src.evaluation.interactive_eval import (
     evaluate_interactive_response,
     generate_feedback_message,
 )
 from src.managers import DatasetManager, MongoDBManager, PromptManager
+from src.utils.prompts import INTERACTIVE_RESPONSE_TEMPLATES
 from src.utils.vlm_client import VLMClient
 
 
+# Define more specific types for OpenAI message content
+class ImageUrlDict(TypedDict):
+    url: str
+    detail: str
+
+
+class TextContent(TypedDict):
+    type: Literal["text"]
+    text: str
+
+
+class ImageUrlContent(TypedDict):
+    type: Literal["image_url"]
+    image_url: ImageUrlDict
+
+
+# Define a type for the image_url structure
+ContentItem = Union[TextContent, ImageUrlContent]
+MessageContent = Union[str, List[ContentItem]]
+
+
 def display_image(container, image_url: str) -> None:
-    """Helper function to display images with consistent sizing"""
+    """
+    Helper function to display images with consistent sizing
+
+    Args:
+        container: Streamlit container or column to display the image in
+        image_url: Path to image file or base64 encoded image data
+    """
     width = 200  # Fixed width of 200px
-    if image_url.startswith("data:image/png;base64,"):
-        # For base64 encoded images
-        container.markdown(
-            f'<img src="{image_url}" style="width:{width}px;">',
-            unsafe_allow_html=True,
-        )
-    else:
-        # For file path images
-        try:
-            container.image(image_url, width=width)
-        except Exception as e:
-            logger.error(f"Failed to display image from path {image_url}: {e}")
-            container.error(f"Failed to load image: {str(e)}")
+
+    try:
+        if image_url.startswith("data:image/png;base64,"):
+            # For base64 encoded images
+            container.markdown(
+                f'<img src="{image_url}" style="width:{width}px;">',
+                unsafe_allow_html=True,
+            )
+        else:
+            # For file path images
+            if os.path.isfile(image_url):
+                container.image(image_url, width=width)
+            else:
+                logger.error(f"Image file not found: {image_url}")
+                container.error("Image file not found")
+    except Exception as e:
+        logger.error(f"Failed to display image: {e}")
+        container.error(f"Failed to load image: {str(e)}")
+
+
+def display_conversation_history(
+    messages, interactive_messages, show_raw_messages=False
+):
+    """Display the full conversation history including original messages and interactive messages"""
+    # First display the original system and user messages
+    if messages:
+        # Always display the system message first
+        render_message(messages[0])
+        if show_raw_messages:
+            with st.expander(f"Raw message: {messages[0].get('role')}", expanded=True):
+                display_raw_message(st, messages[0])
+
+        # Then display the initial user message
+        if len(messages) > 1:
+            render_message(messages[1])
+            if show_raw_messages:
+                with st.expander(
+                    f"Raw message: {messages[1].get('role')}", expanded=True
+                ):
+                    display_raw_message(st, messages[1])
+
+    # Then display all the interactive messages
+    for msg in interactive_messages:
+        render_message(msg)
+        if show_raw_messages:
+            with st.expander(f"Raw message: {msg.get('role')}", expanded=True):
+                display_raw_message(st, msg)
 
 
 def render_message(message: dict[str, Any]) -> None:
@@ -51,7 +114,6 @@ def render_message(message: dict[str, Any]) -> None:
                     # Render text items individually
                     st.write(item["text"])
                     i += 1
-
                 elif item["type"] == "image_url":
                     # Find consecutive image items
                     consecutive_images = [item]
@@ -73,8 +135,7 @@ def render_message(message: dict[str, Any]) -> None:
                     else:
                         # Single image
                         image_url = item["image_url"]["url"]
-                        img_container = st.container()
-                        display_image(img_container, image_url)
+                        display_image(st, image_url)
 
                     # Move index past all consumed images
                     i = next_idx
@@ -94,9 +155,8 @@ def display_raw_message(container, message: dict[str, Any]) -> None:
         for item in display_msg.get("content", []):
             item_copy = item.copy()
             if item_copy.get("type") == "image_url" and "image_url" in item_copy:
-                # Create a copy of the image_url dict to avoid modifying the original
-                image_url_copy = item_copy["image_url"].copy()
                 # Replace base64 data with placeholder
+                image_url_copy = item_copy["image_url"].copy()
                 if "url" in image_url_copy and image_url_copy["url"].startswith(
                     "data:image"
                 ):
@@ -163,11 +223,52 @@ def display_ranking_info(container, sample) -> None:
         container.warning("This is not a properly formatted ranking sample")
 
 
+def select_representative_frames(
+    screenshots: list[str], max_frames: int = 5
+) -> list[str]:
+    """
+    Select representative frames from a list of screenshots using the same logic as
+    compute_frame_indices in the DatasetManager.
+
+    Args:
+        screenshots: List of screenshot file paths
+        max_frames: Maximum number of frames to select (default: 5)
+
+    Returns:
+        List of selected screenshot file paths
+    """
+    total = len(screenshots)
+
+    # If we have fewer screenshots than the max, return all of them
+    if total <= max_frames:
+        return screenshots
+
+    # Otherwise, select representative frames (start, middle, end, etc.)
+    # This replicates the logic from DatasetManager.compute_frame_indices
+    if max_frames == 2:
+        indices = [0, total - 1]
+    elif max_frames == 3:
+        # start, mid, end
+        indices = [0, total // 2, total - 1]
+    elif max_frames == 4:
+        indices = [0, total // 3, 2 * total // 3, total - 1]
+    else:  # max_frames == 5 or more
+        indices = [
+            0,
+            total // 4,
+            total // 2,
+            3 * total // 4,
+            total - 1,
+        ]
+
+    return [screenshots[i] for i in indices]
+
+
 def display_interactive_evaluation(
     response: str, puzzle: dict, attempt_number: int = 1
-) -> tuple[str, list | None]:
+) -> tuple[str, list | None, str]:
     """
-    Display the evaluation of an interactive response including simulation results.
+    Evaluate an interactive response including simulation results without displaying feedback.
 
     Args:
         response: The LLM's response text
@@ -175,37 +276,18 @@ def display_interactive_evaluation(
         attempt_number: Current attempt number (1-5)
 
     Returns:
-        Tuple of (status, screenshots or None)
+        Tuple of (status, screenshots or None, feedback message)
     """
-    st.write("Running physics simulation to evaluate response...")
-
-    # Call the evaluation function with 5 screenshots
+    # Call the evaluation function with more screenshots than we'll display
+    # to get better coverage of the simulation
     result = evaluate_interactive_response(
         response=response,
         puzzle=puzzle,
         visualize=False,  # No visual window needed in Streamlit
-        num_screenshots=5,  # Capture 5 screenshots during simulation
+        num_screenshots=10,  # Capture more screenshots during simulation for better coverage
     )
 
-    # Display status and message
-    status_color = "green" if result.status == "GOAL_REACHED" else "red"
-    st.markdown(
-        f"**Status:** <span style='color:{status_color}'>{result.status}</span>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(f"**Message:** {result.message}")
-
-    # Display ball data if available
-    if result.ball_data:
-        st.subheader("Ball Placement")
-        cols = st.columns(3)
-        cols[0].metric("X Position", f"{float(result.ball_data.get('x', 0)):.2f}")
-        cols[1].metric("Y Position", f"{float(result.ball_data.get('y', 0)):.2f}")
-        cols[2].metric("Radius", f"{float(result.ball_data.get('radius', 0)):.2f}")
-
-    st.subheader("Simulation Screenshots")
-
-    # Validate screenshots before proceeding
+    # Process screenshots
     screenshots = []
     if result.screenshots:
         # Filter only valid screenshot file paths
@@ -215,54 +297,26 @@ def display_interactive_evaluation(
             if isinstance(path, str) and os.path.isfile(path)
         ]
 
-        if not screenshots:
-            st.warning("No valid screenshots were generated during simulation")
+        if screenshots:
+            # Select representative frames (max 5)
+            screenshots = select_representative_frames(screenshots, max_frames=5)
+        else:
+            logger.warning("No valid screenshots were generated during simulation")
     else:
-        st.warning("No screenshots were generated during simulation")
-        return (
-            result.status,
-            None,
-            generate_feedback_message(result.status, attempt_number, None),
-        )
-
-    # Select only 5 frames using compute_frame_indices
-    from src.managers.dataset_manager import DatasetManager
-
-    # Get indices for 5 frames
-    num_screenshots = len(screenshots)
-    if num_screenshots > 5:
-        # Use DatasetManager's compute_frame_indices to select 5 frames
-        dataset_mgr = DatasetManager(None)
-        indices = dataset_mgr.compute_frame_indices(num_screenshots, 5)
-        selected_screenshots = [screenshots[i] for i in indices]
-    else:
-        selected_screenshots = screenshots
-
-    # Create a single row of columns for all screenshots
-    if selected_screenshots:
-        cols = st.columns(len(selected_screenshots))
-
-        # Display each screenshot with caption
-        for i, screenshot in enumerate(selected_screenshots):
-            with cols[i]:
-                try:
-                    st.image(
-                        screenshot, caption=f"Frame {i+1}", use_container_width=True
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to display screenshot: {str(e)}")
-                    st.error(f"Error displaying frame {i+1}")
-    else:
-        st.warning("No valid screenshots to display")
-
-    # Display summary message based on status
-    if result.status == "GOAL_REACHED":
-        st.success("✅ Goal successfully reached with the proposed ball placement!")
-    else:
-        st.error("❌ The proposed ball placement did not solve the puzzle.")
+        logger.warning("No screenshots were generated during simulation")
 
     # Generate the feedback message for the next turn
-    feedback = generate_feedback_message(result.status, attempt_number, screenshots)
+    feedback = generate_feedback_message(result.status, attempt_number)
+
+    # Remove any <CURRENT_CURSOR_POSITION> markers that might be in the feedback
+    feedback = feedback.replace("<CURRENT_CURSOR_POSITION>", "")
+
+    # Debug: Print the feedback message
+    print(f"DEBUG - Feedback message: {feedback}")
+    if "[IMAGES]" in feedback:
+        parts = feedback.split("[IMAGES]")
+        print(f"DEBUG - First part: {parts[0]}")
+        print(f"DEBUG - Second part: {parts[1]}")
 
     return result.status, screenshots, feedback
 
@@ -283,6 +337,22 @@ def main() -> None:
     # Sidebar configuration
     st.sidebar.title("Configuration")
 
+    # Add debug mode toggle in sidebar
+    debug_mode = st.sidebar.checkbox("Enable Debug Mode", value=False)
+
+    # Create a container for debug output that we'll use later
+    debug_container = st.container()
+
+    # Initialize a dictionary to store debug variables
+    if "debug_vars" not in st.session_state:
+        st.session_state.debug_vars = {}
+
+    # Helper function to add variables to debug tracking
+    def debug_track(name, value):
+        if debug_mode:
+            st.session_state.debug_vars[name] = value
+        return value
+
     # Initialize database managers
     try:
         # Initialize managers
@@ -299,7 +369,7 @@ def main() -> None:
         prompt_type = st.sidebar.selectbox(
             "Prompt Type",
             options=["sanity_check", "ranking", "binary", "confidence", "interactive"],
-            index=0,
+            index=4,
         )
 
         # Template ID selection
@@ -372,15 +442,19 @@ def main() -> None:
             selected_provider = st.sidebar.selectbox(
                 "Select Provider",
                 options=vlm_client.get_providers(),
-                index=0,
+                index=1,
             )
 
             # Model selection based on provider
             available_models = vlm_client.get_models_by_provider(selected_provider)
+            # Use a safer default index that works for all providers
+            default_index = (
+                min(len(available_models) - 1, 0) if available_models else None
+            )
             selected_model = st.sidebar.selectbox(
                 "Select Model",
                 options=available_models,
-                index=2 if available_models else None,
+                index=default_index,
             )
         else:
             st.sidebar.warning(
@@ -398,7 +472,7 @@ def main() -> None:
                 )
                 st.success(f"Successfully loaded ranking sample {sample_id}")
             elif prompt_type == "sanity_check":
-                sample = dataset_manager.get_sanity_check_sample(
+                sample = dataset_manager.get_sanity_check_sample(  # type: ignore
                     sample_id,
                     proposal_tier,
                     few_shot_count=few_shot_count,
@@ -408,7 +482,7 @@ def main() -> None:
                 )
             elif prompt_type == "confidence":
                 # Use binary sample retrieval but force few_shot_count to 0
-                sample = dataset_manager.get_binary_sample(
+                sample = dataset_manager.get_binary_sample(  # type: ignore
                     sample_id,
                     1,
                     proposal_tier,
@@ -419,10 +493,10 @@ def main() -> None:
                     f"Successfully loaded confidence sample {sample_id} with tier {proposal_tier}"
                 )
             elif prompt_type == "interactive":
-                sample = dataset_manager.get_interactive_sample(sample_id)
+                sample = dataset_manager.get_interactive_sample(sample_id)  # type: ignore
                 st.success(f"Successfully loaded interactive sample {sample_id}")
             else:  # binary
-                sample = dataset_manager.get_binary_sample(
+                sample = dataset_manager.get_binary_sample(  # type: ignore
                     sample_id,
                     1,
                     proposal_tier,
@@ -485,6 +559,10 @@ def main() -> None:
             insert_few_shot=(few_shot_count > 0),
         )
 
+        # Track messages for debugging
+        debug_track("messages", messages)
+        debug_track("sample", sample)
+
         # Display messages
         st.subheader("Generated Messages")
         if prompt_type == "ranking":
@@ -492,89 +570,8 @@ def main() -> None:
         else:
             st.caption(f"Showing prompt for {proposal_tier} proposal")
 
-        # Improved few-shot rendering logic
-        if few_shot_count > 0 and sample.few_shot and len(sample.few_shot) > 0:
-            # Always display the system message first
-            render_message(messages[0])
-
-            # Display raw message if enabled
-            if show_raw_messages:
-                with st.expander(
-                    f"Raw message: {messages[0].get('role')}", expanded=True
-                ):
-                    display_raw_message(st, messages[0])
-
-            # Then the initial user message explaining the task
-            if len(messages) > 1:
-                render_message(messages[1])
-                if show_raw_messages:
-                    with st.expander(
-                        f"Raw message: {messages[1].get('role')}", expanded=True
-                    ):
-                        display_raw_message(st, messages[1])
-
-            # Check if we have few-shot examples
-            if (
-                len(messages) > 3
-            ):  # At minimum: system + user + few-shot user + few-shot assistant
-                i = 2  # Start after system and initial user message
-
-                # Process messages in pairs until we reach the final user message
-                while i < len(messages) - 1:
-                    # Check if this looks like a few-shot pair (user followed by assistant)
-                    if (
-                        messages[i].get("role") == "user"
-                        and i + 1 < len(messages)
-                        and messages[i + 1].get("role") == "assistant"
-                    ):
-                        # Display user message (question with image)
-                        render_message(messages[i])
-                        if show_raw_messages:
-                            with st.expander(
-                                f"Raw message: {messages[i].get('role')}", expanded=True
-                            ):
-                                display_raw_message(st, messages[i])
-
-                        # Display assistant message (answer)
-                        render_message(messages[i + 1])
-                        if show_raw_messages:
-                            with st.expander(
-                                f"Raw message: {messages[i+1]}.get('role')",
-                                expanded=True,
-                            ):
-                                display_raw_message(st, messages[i + 1])
-
-                        i += 2  # Move to the next potential pair
-                    else:
-                        # If not a few-shot pair, we've likely reached the final user question
-                        break
-
-                # Display the final user question (current problem)
-                while i < len(messages):
-                    render_message(messages[i])
-                    if show_raw_messages:
-                        with st.expander(
-                            f"Raw message: {messages[i].get('role')}", expanded=True
-                        ):
-                            display_raw_message(st, messages[i])
-                    i += 1
-            else:
-                # No few-shot examples in the messages
-                for i in range(2, len(messages)):
-                    render_message(messages[i])
-                    if show_raw_messages:
-                        with st.expander(
-                            f"Raw message: {messages[i].get('role')}", expanded=True
-                        ):
-                            display_raw_message(st, messages[i])
-
-        else:
-            # No few-shot examples requested, just show all messages sequentially
-            for i, msg in enumerate(messages):
-                render_message(msg)
-                if show_raw_messages:
-                    with st.expander(f"Raw message: {msg.get('role')}", expanded=True):
-                        display_raw_message(st, msg)
+        # Display conversation history
+        display_conversation_history(messages, [], show_raw_messages)
 
         # VLM integration - Send to model button and response display
         if vlm_client.is_configured() and selected_model:
@@ -593,18 +590,50 @@ def main() -> None:
             if "interactive_completed" not in st.session_state:
                 st.session_state.interactive_completed = False
 
+            if "continue_interaction" not in st.session_state:
+                st.session_state.continue_interaction = False
+
+            # Track interactive state for debugging
+            if debug_mode:
+                debug_track("interactive_attempt", st.session_state.interactive_attempt)
+                debug_track(
+                    "interactive_messages", st.session_state.interactive_messages
+                )
+                debug_track("interactive_status", st.session_state.interactive_status)
+
+            # If we have previous interactive messages, display them
+            if prompt_type == "interactive" and st.session_state.interactive_messages:
+                st.subheader("Conversation History")
+                display_conversation_history(
+                    messages, st.session_state.interactive_messages, show_raw_messages
+                )
+
             # Display attempts counter for interactive mode
             if prompt_type == "interactive":
-                st.write(f"Current attempt: {st.session_state.interactive_attempt}/5")
-
                 # Show reset button if we've already started
                 if st.session_state.interactive_attempt > 1:
-                    if st.button("Reset Interactive Session"):
-                        st.session_state.interactive_attempt = 1
-                        st.session_state.interactive_messages = []
-                        st.session_state.interactive_status = None
-                        st.session_state.interactive_completed = False
-                        st.rerun()
+                    if st.session_state.interactive_completed:
+                        st.markdown("---")
+                        if st.button(
+                            "Reset Interactive Session",
+                            type="primary",
+                            use_container_width=True,
+                        ):
+                            st.session_state.interactive_attempt = 1
+                            st.session_state.interactive_messages = []
+                            st.session_state.interactive_status = None
+                            st.session_state.interactive_completed = False
+                            st.session_state.continue_interaction = False
+                            st.rerun()
+                        st.markdown("---")
+                    else:
+                        if st.button("Reset Interactive Session"):
+                            st.session_state.interactive_attempt = 1
+                            st.session_state.interactive_messages = []
+                            st.session_state.interactive_status = None
+                            st.session_state.interactive_completed = False
+                            st.session_state.continue_interaction = False
+                            st.rerun()
 
             send_col, spinner_col = st.columns([1, 3])
             with send_col:
@@ -613,6 +642,14 @@ def main() -> None:
                     use_container_width=True,
                     disabled=st.session_state.interactive_completed,
                 )
+
+            # Check if we should continue the interaction from the previous step
+            if prompt_type == "interactive" and st.session_state.get(
+                "continue_interaction", False
+            ):
+                # Reset the flag
+                st.session_state.continue_interaction = False
+                send_button = True
 
             if send_button:
                 try:
@@ -640,11 +677,13 @@ def main() -> None:
                             )
 
                     # Display model response
-                    st.subheader("Model Response")
-                    st.markdown("---")
                     with st.chat_message("assistant"):
                         st.write(response)
-                    st.markdown("---")
+                        if show_raw_messages:
+                            with st.expander(f"Raw message: assistant", expanded=True):
+                                display_raw_message(
+                                    st, {"role": "assistant", "content": response}
+                                )
 
                     # Handle interactive evaluation if in interactive mode
                     if (
@@ -657,11 +696,7 @@ def main() -> None:
 
                         # Process the response only if we haven't reached max attempts
                         if st.session_state.interactive_attempt <= 5:
-                            st.subheader(
-                                f"Evaluation - Attempt {st.session_state.interactive_attempt}"
-                            )
-
-                            # Evaluate the response
+                            # Evaluate the response without showing the title
                             status, screenshots, feedback = (
                                 display_interactive_evaluation(
                                     response,
@@ -669,6 +704,11 @@ def main() -> None:
                                     st.session_state.interactive_attempt,
                                 )
                             )
+
+                            # Track evaluation results for debugging
+                            debug_track("eval_status", status)
+                            debug_track("eval_screenshots", screenshots)
+                            debug_track("eval_feedback", feedback)
 
                             # Store the status
                             st.session_state.interactive_status = status
@@ -679,60 +719,71 @@ def main() -> None:
                                 or st.session_state.interactive_attempt >= 5
                             ):
                                 st.session_state.interactive_completed = True
-                                if status == "GOAL_REACHED":
-                                    st.success(
-                                        "🎉 Success! The puzzle has been solved."
-                                    )
-                                else:
-                                    st.warning("Maximum number of attempts reached.")
                             else:
-                                # Prepare for next attempt
-                                st.subheader("Next Attempt")
-
                                 # Create user message with feedback
-                                user_content = []
+                                user_content: List[Any] = []
 
-                                # Add text feedback
-                                user_content.append({"type": "text", "text": feedback})
-
-                                # If we have screenshots and status is GOAL_NOT_REACHED,
-                                # add them to the feedback message
+                                # For GOAL_NOT_REACHED, we need to handle the [IMAGES] placeholder
                                 if status == "GOAL_NOT_REACHED" and screenshots:
-                                    # Replace the [IMAGE:x] placeholders with actual images
-                                    for i, screenshot in enumerate(screenshots[:5]):
-                                        try:
-                                            # Check if screenshot is a valid file path
-                                            if isinstance(
-                                                screenshot, str
-                                            ) and os.path.isfile(screenshot):
-                                                with open(screenshot, "rb") as f:
-                                                    img_data = f.read()
-                                                    encoded_img = base64.b64encode(
-                                                        img_data
-                                                    ).decode("utf-8")
-                                                    user_content.append(
-                                                        {
-                                                            "type": "image_url",
-                                                            "image_url": {
-                                                                "url": f"data:image/png;base64,{encoded_img}",
-                                                                "detail": "high",
-                                                            },
-                                                        }
-                                                    )
-                                            else:
+                                    # Split the feedback message at the [IMAGES] placeholder
+                                    parts = feedback.split("[IMAGES]")
+
+                                    if len(parts) == 2:
+                                        # Remove any <CURRENT_CURSOR_POSITION> marker from the feedback
+                                        first_part = (
+                                            parts[0]
+                                            .replace("<CURRENT_CURSOR_POSITION>", "")
+                                            .strip()
+                                        )
+                                        second_part = (
+                                            parts[1]
+                                            .replace("<CURRENT_CURSOR_POSITION>", "")
+                                            .strip()
+                                        )
+
+                                        # Add the first part of the text
+                                        user_content.append(
+                                            {"type": "text", "text": first_part}
+                                        )
+
+                                        # Add the screenshots
+                                        for screenshot in screenshots[:5]:
+                                            try:
+                                                if isinstance(
+                                                    screenshot, str
+                                                ) and os.path.isfile(screenshot):
+                                                    with open(screenshot, "rb") as f:
+                                                        img_data = f.read()
+                                                        encoded_img = base64.b64encode(
+                                                            img_data
+                                                        ).decode("utf-8")
+                                                        user_content.append(
+                                                            {
+                                                                "type": "image_url",
+                                                                "image_url": {
+                                                                    "url": f"data:image/png;base64,{encoded_img}",
+                                                                    "detail": "high",
+                                                                },
+                                                            }
+                                                        )
+                                            except Exception as e:
                                                 logger.error(
-                                                    f"Screenshot is not a valid file path: {screenshot}"
+                                                    f"Failed to process screenshot: {e}"
                                                 )
-                                                st.warning(
-                                                    f"Could not process screenshot {i+1}"
-                                                )
-                                        except Exception as e:
-                                            logger.error(
-                                                f"Failed to process screenshot: {e}"
-                                            )
-                                            st.warning(
-                                                f"Failed to process screenshot {i+1}: {str(e)}"
-                                            )
+
+                                        # Add the second part of the text
+                                        user_content.append(
+                                            {"type": "text", "text": second_part}
+                                        )
+                                    else:
+                                        # Fallback if [IMAGES] placeholder not found
+                                        user_content.append(
+                                            {"type": "text", "text": feedback}
+                                        )
+                                else:
+                                    # For other statuses, just write the feedback
+                                    print(f"DEBUG - UI Raw feedback: {feedback}")
+                                    st.write(feedback)
 
                                 # Create the user message with feedback
                                 user_msg = {"role": "user", "content": user_content}
@@ -740,42 +791,98 @@ def main() -> None:
                                 # Add to interactive messages
                                 st.session_state.interactive_messages.append(user_msg)
 
-                                # Display the feedback to the user
+                                # Display the feedback to the user with images in the right place
                                 with st.chat_message("user"):
-                                    st.write(feedback)
-
-                                    # Show images if we have them
                                     if status == "GOAL_NOT_REACHED" and screenshots:
-                                        # Create columns for the screenshots
-                                        cols = st.columns(min(5, len(screenshots)))
-                                        for i, screenshot in enumerate(screenshots[:5]):
-                                            with cols[i]:
-                                                # Add error handling here too
+                                        # Split the feedback message at the [IMAGES] placeholder
+                                        parts = feedback.split("[IMAGES]")
+
+                                        if len(parts) == 2:
+                                            # Remove any <CURRENT_CURSOR_POSITION> marker from the feedback
+                                            first_part = (
+                                                parts[0]
+                                                .replace(
+                                                    "<CURRENT_CURSOR_POSITION>", ""
+                                                )
+                                                .strip()
+                                            )
+                                            second_part = (
+                                                parts[1]
+                                                .replace(
+                                                    "<CURRENT_CURSOR_POSITION>", ""
+                                                )
+                                                .strip()
+                                            )
+
+                                            # Write the first part
+                                            st.write(first_part)
+
+                                            # Display screenshots in columns
+                                            if len(screenshots) > 1:
+                                                # Limit to max 5 columns for better display
+                                                cols = st.columns(
+                                                    min(len(screenshots), 5)
+                                                )
+                                                for col_idx, screenshot in enumerate(
+                                                    screenshots[:5]
+                                                ):
+                                                    try:
+                                                        if isinstance(
+                                                            screenshot, str
+                                                        ) and os.path.isfile(
+                                                            screenshot
+                                                        ):
+                                                            display_image(
+                                                                cols[col_idx],
+                                                                screenshot,
+                                                            )
+                                                    except Exception as e:
+                                                        logger.error(
+                                                            f"Failed to display screenshot: {e}"
+                                                        )
+                                            else:
+                                                # Single image
+                                                img_container = st.container()
                                                 try:
                                                     if isinstance(
-                                                        screenshot, str
-                                                    ) and os.path.isfile(screenshot):
-                                                        st.image(
-                                                            screenshot,
-                                                            caption=f"Frame {i+1}",
-                                                            use_container_width=True,
-                                                        )
-                                                    else:
-                                                        st.warning(
-                                                            f"Invalid screenshot {i+1}"
+                                                        screenshots[0], str
+                                                    ) and os.path.isfile(
+                                                        screenshots[0]
+                                                    ):
+                                                        display_image(
+                                                            img_container,
+                                                            screenshots[0],
                                                         )
                                                 except Exception as e:
-                                                    st.warning(
-                                                        f"Failed to display screenshot {i+1}: {str(e)}"
+                                                    logger.error(
+                                                        f"Failed to display screenshot: {e}"
                                                     )
+
+                                            # Write the second part
+                                            st.write(second_part)
+
+                                    else:
+                                        # For other statuses, just write the feedback
+                                        st.write(feedback)
+
+                                    if show_raw_messages:
+                                        with st.expander(
+                                            f"Raw message: user", expanded=True
+                                        ):
+                                            display_raw_message(st, user_msg)
 
                                 # Increment the attempt counter
                                 st.session_state.interactive_attempt += 1
 
                                 # Provide button to continue the interaction
-                                st.button("Continue to next attempt", on_click=st.rerun)
-
-                    # ...remaining code for ranking prompts, etc.
+                                if st.button(
+                                    "Continue to next attempt",
+                                    key=f"continue_{st.session_state.interactive_attempt}",
+                                ):
+                                    # Instead of just rerunning, we need to trigger the send to model
+                                    # We'll set a session state flag to indicate we should send the message
+                                    st.session_state.continue_interaction = True
+                                    st.rerun()
 
                 except Exception as e:
                     st.error(f"Error sending messages to {selected_model}: {str(e)}")
@@ -786,6 +893,11 @@ def main() -> None:
         st.error(f"Error loading sample from database: {str(e)}")
         st.info("Please check your database connection and sample ID.")
         st.exception(e)
+
+        # Track exception for debugging
+        if debug_mode:
+            debug_track("exception", str(e))
+            debug_track("exception_type", type(e).__name__)
 
     # Additional information
     st.sidebar.subheader("About")
@@ -799,6 +911,50 @@ def main() -> None:
         the OpenRouter integration.
         """
     )
+
+    # Display debug information if debug mode is enabled
+    if debug_mode:
+        with debug_container:
+            st.header("Debug Information")
+
+            # Add tabs for different debug views
+            debug_tabs = st.tabs(["Variables", "Session State", "Current Frame"])
+
+            # Variables tab - show tracked variables
+            with debug_tabs[0]:
+                st.subheader("Tracked Variables")
+                if st.session_state.debug_vars:
+                    for var_name, var_value in st.session_state.debug_vars.items():
+                        with st.expander(f"{var_name}"):
+                            # Use pretty printing for better formatting
+                            st.code(pprint.pformat(var_value, depth=3, compact=False))
+                else:
+                    st.info("No variables have been tracked yet.")
+
+            # Session State tab - show all session state
+            with debug_tabs[1]:
+                st.subheader("Session State")
+                # Filter out debug_vars to avoid recursion
+                filtered_state = {
+                    k: v for k, v in st.session_state.items() if k != "debug_vars"
+                }
+                st.json(filtered_state)
+
+            # Current Frame tab - show current frame info
+            with debug_tabs[2]:
+                st.subheader("Current Frame")
+                frame = inspect.currentframe()
+                if frame:
+                    # Get local variables from the current frame
+                    local_vars = {
+                        k: str(v)
+                        for k, v in frame.f_locals.items()
+                        if not k.startswith("_")
+                        and k != "debug_vars"
+                        and not inspect.ismodule(v)
+                        and not inspect.isfunction(v)
+                    }
+                    st.json(local_vars)
 
 
 if __name__ == "__main__":

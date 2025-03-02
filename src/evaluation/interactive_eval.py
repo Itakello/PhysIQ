@@ -4,8 +4,11 @@ Module for evaluating interactive ball placement responses from the LLM.
 
 import copy
 import json
+import os
 import re
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 
 from loguru import logger
 
@@ -21,7 +24,7 @@ class InteractiveEvalResult:
     status: str
     message: str
     ball_data: dict | None = None
-    screenshots: list | None = None
+    screenshots: list[str] | None = None  # Changed to list of file paths
 
 
 def extract_json_from_response(response: str) -> dict | None:
@@ -166,7 +169,7 @@ def evaluate_interactive_response(
     simulation_manager = SimulationManager()
 
     try:
-        goal_reached, screenshots = simulation_manager.run_simulation(
+        goal_reached, pil_screenshots = simulation_manager.run_simulation(
             puzzle=tmp_puzzle, visualize=visualize, num_screenshots=num_screenshots
         )
     except ValueError as e:
@@ -177,33 +180,43 @@ def evaluate_interactive_response(
             ball_data=ball_data,
         )
 
+    # Convert PIL images to file paths by saving them to disk
+    screenshot_paths = []
+    if pil_screenshots:
+        # Create a temporary directory for screenshots if it doesn't exist
+        temp_dir = Path(tempfile.gettempdir()) / "physiq_screenshots"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Save each screenshot to disk
+        for i, img in enumerate(pil_screenshots):
+            file_path = temp_dir / f"screenshot_{puzzle.get('id', 'unknown')}_{i}.png"
+            img.save(file_path)
+            screenshot_paths.append(str(file_path))
+
     # Return result based on goal achievement
     if goal_reached:
         return InteractiveEvalResult(
             status="GOAL_REACHED",
             message="Goal successfully reached",
             ball_data=ball_data,
-            screenshots=screenshots,
+            screenshots=screenshot_paths,
         )
     else:
         return InteractiveEvalResult(
             status="GOAL_NOT_REACHED",
             message="Goal not reached with the proposed ball placement",
             ball_data=ball_data,
-            screenshots=screenshots,
+            screenshots=screenshot_paths,
         )
 
 
-def generate_feedback_message(
-    status: str, attempt_number: int, screenshots=None
-) -> str:
+def generate_feedback_message(status: str, attempt_number: int) -> str:
     """
     Generate feedback message for interactive LLM responses based on status.
 
     Args:
         status: The evaluation status (GOAL_REACHED, GOAL_NOT_REACHED, etc.)
         attempt_number: Current attempt number (1-5)
-        screenshots: Optional list of screenshot paths to include
 
     Returns:
         Formatted feedback message
@@ -215,17 +228,14 @@ def generate_feedback_message(
     if status == "GOAL_REACHED":
         return template
 
-    # Replace attempt placeholder
-    message = template.format(attempt=next_attempt)
+    # Debug: Print the template and next attempt
+    print(f"DEBUG - Template for {status}: {template}")
+    print(f"DEBUG - Next attempt: {next_attempt}")
 
-    # If screenshots are provided and this is GOAL_NOT_REACHED,
-    # we need to add image placeholders in the template
-    if status == "GOAL_NOT_REACHED" and screenshots:
-        # Replace the placeholder text with actual image placeholders
-        # This will be processed by the UI to show the actual images
-        image_placeholders = "\n".join(
-            [f"[IMAGE:{i}]" for i, _ in enumerate(screenshots[:5])]
-        )
-        message = message.replace("[Image frames will appear here]", image_placeholders)
+    # For other statuses, just replace the attempt placeholder
+    formatted_message = template.format(attempt=next_attempt)
 
-    return message
+    # Debug: Print the formatted message
+    print(f"DEBUG - Formatted message: {formatted_message}")
+
+    return formatted_message

@@ -1,5 +1,5 @@
 import base64
-from typing import Any
+from typing import Any, Dict, List, Literal, TypedDict, Union
 
 from src.utils.const import COLORS, MAX_BODIES_TO_DESCRIBE, STATIC_BODY
 from src.utils.db_schemas import (
@@ -11,6 +11,26 @@ from src.utils.db_schemas import (
     SampleData,
 )
 from src.utils.prompts import SYSTEM_TEMPLATES, USER_TEMPLATES
+
+
+# Define more specific types for OpenAI message content
+class ImageUrlDict(TypedDict):
+    url: str
+    detail: str
+
+
+class TextContent(TypedDict):
+    type: Literal["text"]
+    text: str
+
+
+class ImageUrlContent(TypedDict):
+    type: Literal["image_url"]
+    image_url: ImageUrlDict
+
+
+# Define a custom type for the OpenAI message content structure
+ContentItem = Union[TextContent, ImageUrlContent]
 
 
 class PromptManager:
@@ -96,7 +116,7 @@ class PromptManager:
         fill_dict = self._extract_values(sample.puzzle, sample.images)
 
         # 1. System message with instructions
-        messages = [
+        messages: list[dict[str, Any]] = [
             {
                 "role": "system",
                 "content": self._fill_template(self.system_template, fill_dict, ""),
@@ -111,7 +131,7 @@ class PromptManager:
 
         # 3. Final user message with the specific question and image
         question = self._fill_template(self.user_template, fill_dict, "")
-        user_content = []
+        user_content: List[Any] = []
 
         if self.prompt_type == "ranking":
             # For ranking prompts, add multiple proposals
@@ -195,7 +215,7 @@ class PromptManager:
             # Add the question after the images
             user_content.append({"type": "text", "text": question})
 
-        messages.append({"role": "user", "content": user_content})  # type: ignore
+        messages.append({"role": "user", "content": user_content})
         return messages
 
     def _create_few_shot_messages(
@@ -221,9 +241,9 @@ class PromptManager:
         # Handle ranking prompt type differently - check if we have a RankingFewShotData instance
         if self.prompt_type == "ranking" and isinstance(few_shot, RankingFewShotData):
             # Create user message with example number and proposals
-            user_content = []
+            fs_user_content: List[Any] = []
             example_prefix = f"Example {few_shot.index}:"
-            user_content.append({"type": "text", "text": example_prefix})
+            fs_user_content.append({"type": "text", "text": example_prefix})
 
             # Extract target objects from the puzzle data
             target_obj1 = "target object 1"
@@ -251,14 +271,14 @@ class PromptManager:
             for i, (proposal, proposal_images) in enumerate(
                 zip(few_shot.proposals, few_shot.images_list), 1
             ):
-                user_content.append({"type": "text", "text": f"Proposal {i}:"})
+                fs_user_content.append({"type": "text", "text": f"Proposal {i}:"})
 
                 # Add the proposal's image(s)
                 for image_path in proposal_images:
                     with open(image_path, "rb") as f:
                         img_data = f.read()
                         encoded_img = base64.b64encode(img_data).decode("utf-8")
-                        user_content.append(
+                        fs_user_content.append(
                             {
                                 "type": "image_url",
                                 "image_url": {
@@ -273,9 +293,9 @@ class PromptManager:
             question = template.replace("<TARGET_OBJ1>", target_obj1).replace(
                 "<TARGET_OBJ2>", target_obj2
             )
-            user_content.append({"type": "text", "text": question})
+            fs_user_content.append({"type": "text", "text": question})
 
-            messages.append({"role": "user", "content": user_content})
+            messages.append({"role": "user", "content": fs_user_content})
 
             # Create assistant message with the ranking answer as a list
             correct_ranking = few_shot.metadata.correct_ranking
@@ -311,12 +331,12 @@ class PromptManager:
                     target_obj2 = f"{obj2_color} {obj2_type}"
 
             # Create user message with initial screenshot and question
-            user_content = []
+            fs_user_content: List[Any] = []
 
             # Add example number prefix to the message
             example_prefix = f"Example {few_shot.index}:"
 
-            user_content.append({"type": "text", "text": example_prefix})
+            fs_user_content.append({"type": "text", "text": example_prefix})
 
             # Add ALL available images instead of just the first one
             if images:
@@ -324,7 +344,7 @@ class PromptManager:
                     with open(image_path, "rb") as f:
                         img_data = f.read()
                         encoded_img = base64.b64encode(img_data).decode("utf-8")
-                        user_content.append(
+                        fs_user_content.append(
                             {
                                 "type": "image_url",
                                 "image_url": {
@@ -343,9 +363,9 @@ class PromptManager:
                 "<TARGET_OBJ2>", target_obj2
             )
 
-            user_content.append({"type": "text", "text": full_question})
+            fs_user_content.append({"type": "text", "text": full_question})
 
-            messages.append({"role": "user", "content": user_content})
+            messages.append({"role": "user", "content": fs_user_content})
 
             # Create assistant message with the answer (Yes/No)
             messages.append({"role": "assistant", "content": success_status})

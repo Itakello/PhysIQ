@@ -113,19 +113,27 @@ Answer:""",
 # Interactive response templates for different evaluation outcomes
 INTERACTIVE_RESPONSE_TEMPLATES = {
     "OUTSIDE_BOUNDARIES": """Your previous proposal couldn't be applied.
+
 **Reason**: Your ball exceeds the simulation boundaries.
+
 **Try again**, ensuring he ball fits entirely within the boundaries (0 ≤ x ≤ 256, 0 ≤ y ≤ 256). Provide a new proposal strictly in the same JSON format.
+
 Try {attempt}:""",
     "OVERLAPPING": """Your previous proposal couldn't be applied.
+
 **Reason**: Your ball overlaps existing objects.
+
 **Try again**, ensuring the ball does not overlap with any other object. Provide a new proposal strictly in the same JSON format.
+
 Try {attempt}:""",
     "GOAL_NOT_REACHED": """The simulation ran successfully, but your proposal didn't achieve the goal.
-Review the following 5 simulation frames showing how your previous proposal evolved:
 
-[Image frames will appear here]
+Review the following 5 simulation frames, each sampled at regular intervals, that illustrate key stages in the evolution of your previous proposal.
+
+[IMAGES]
 
 Carefully analyze the frames and **try again**. Provide a new proposal strictly in the same JSON format.
+
 Try {attempt}:""",
     "GOAL_REACHED": """Congratulations! Your proposal successfully achieved the goal.
 The simulation shows that the target objects came into contact as required.""",
