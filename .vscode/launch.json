@@ -101,41 +101,37 @@
             ]
         },
         {
-            "name": "5 - Interactive Evaluation",
+            "name": "5 - Evaluation",
             "type": "debugpy",
             "request": "launch",
-            "module": "scripts.5_interactive_evaluation",
+            "module": "scripts.5_evaluation",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "args": [
                 "--start_template",
                 "0",
                 "--stop_template",
-                "5",
+                "0",
                 "--iterations",
-                "2",
+                "1",
                 "--db_name",
                 "physiq_db",
-                "--evaluation_types",
-                "sanity_check",
+                "--evaluation_type",
+                //"sanity_check",
+                //"binary",
+                //"ranking",
+                //"confidence",
+                "interactive",
                 "--models",
-                "google/gemini-2.0-flash-thinking-exp:free",
+                "openai/gpt-4o",
+                //"all",
                 "--few_shot_count",
-                "1",
+                "0",
+                "--few_shot_frames",
+                "0",
                 "--output_dir",
-                "evaluation_results"
-            ]
-        },
-        {
-            "name": "5 - Non-interactive Evaluation",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "scripts.5_non_interactive_evaluation",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "args": [
-                "--db_name",
-                "physiq_db"
+                "evaluation_results",
+                "--save_to_db"
             ]
         },
         {
@@ -151,14 +147,5 @@
                 ""
             ]
         },
-        {
-            "name": "Test",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "test",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "args": []
-        }
     ]
 }

@@ -2,7 +2,7 @@ import base64
 import inspect
 import os
 import pprint
-from typing import Any, List, Literal, TypedDict, Union
+from typing import Any, Literal, TypedDict, Union
 
 import streamlit as st
 from loguru import logger
@@ -33,7 +33,7 @@ class ImageUrlContent(TypedDict):
 
 # Define a type for the image_url structure
 ContentItem = Union[TextContent, ImageUrlContent]
-MessageContent = Union[str, List[ContentItem]]
+MessageContent = Union[str, list[ContentItem]]
 
 
 def display_image(container, image_url: str) -> None:
@@ -69,24 +69,11 @@ def display_conversation_history(
     messages, interactive_messages, show_raw_messages=False
 ):
     """Display the full conversation history including original messages and interactive messages"""
-    # First display the original system and user messages
-    if messages:
-        # Always display the system message first
-        render_message(messages[0])
+    for msg in messages:
+        render_message(msg)
         if show_raw_messages:
-            with st.expander(f"Raw message: {messages[0].get('role')}", expanded=True):
-                display_raw_message(st, messages[0])
-
-        # Then display the initial user message
-        if len(messages) > 1:
-            render_message(messages[1])
-            if show_raw_messages:
-                with st.expander(
-                    f"Raw message: {messages[1].get('role')}", expanded=True
-                ):
-                    display_raw_message(st, messages[1])
-
-    # Then display all the interactive messages
+            with st.expander(f"Raw message: {msg.get('role')}", expanded=True):
+                display_raw_message(st, msg)
     for msg in interactive_messages:
         render_message(msg)
         if show_raw_messages:
@@ -679,7 +666,7 @@ def main() -> None:
                     with st.chat_message("assistant"):
                         st.write(response)
                         if show_raw_messages:
-                            with st.expander(f"Raw message: assistant", expanded=True):
+                            with st.expander("Raw message: assistant", expanded=True):
                                 display_raw_message(
                                     st, {"role": "assistant", "content": response}
                                 )
@@ -720,7 +707,7 @@ def main() -> None:
                                 st.session_state.interactive_completed = True
                             else:
                                 # Create user message with feedback
-                                user_content: List[Any] = []
+                                user_content: list[Any] = []
 
                                 # For GOAL_NOT_REACHED, we need to handle the [IMAGES] placeholder
                                 if status == "GOAL_NOT_REACHED" and screenshots:
@@ -866,7 +853,7 @@ def main() -> None:
 
                                     if show_raw_messages:
                                         with st.expander(
-                                            f"Raw message: user", expanded=True
+                                            "Raw message: user", expanded=True
                                         ):
                                             display_raw_message(st, user_msg)
 

@@ -1,7 +1,7 @@
 import os
-from typing import Any, Dict, List, Optional, cast
+import time
+from typing import Any, cast
 
-import weave
 from loguru import logger
 from openai import OpenAI
 
@@ -11,23 +11,18 @@ class VLMClient:
 
     # Available providers and their models
     PROVIDERS = {
-        "OpenAI": ["openai/gpt-4o", "openai/o1", "openai/o1-mini"],
+        "OpenAI": ["openai/gpt-4o"],
         "Google": [
-            "google/gemini-2.0-pro-exp-02-05:free",
-            "google/gemini-2.0-flash-thinking-exp:free",
-            "google/gemini-2.0-flash-lite-001",
+            "google/gemini-2.0-flash-001",
         ],
-        "Anthropic": [
-            "anthropic/claude-3.7-sonnet",
-            "anthropic/claude-3.7-sonnet:thinking",
-        ],
-        "X-AI": ["x-ai/grok-2-vision-1212"],
-        "Mistral AI": ["mistralai/pixtral-large-2411"],
         "Meta": [
-            "meta-llama/llama-3.2-11b-vision-instruct:free",
+            "meta-llama/llama-3.2-11b-vision-instruct"
             "meta-llama/llama-3.2-90b-vision-instruct",
         ],
-        "Qwen": ["qwen/qwen-vl-plus:free", "qwen/qwen2.5-vl-72b-instruct:free"],
+        "Qwen": [
+            "qwen/qwen2.5-vl-72b-instruct",
+        ],
+        "MistralAI": ["mistralai/pixtral-large-2411"],
     }
 
     # Flat list of all models
@@ -43,9 +38,6 @@ class VLMClient:
                 api_key=self.api_key,
             )
 
-        # Initialize Weave model registry
-        self.weave_models = {}
-
     def is_configured(self) -> bool:
         """Check if the client is properly configured with an API key."""
         return self.api_key is not None and self.client is not None
@@ -57,24 +49,6 @@ class VLMClient:
     def get_providers(self) -> list[str]:
         """Get the list of all providers."""
         return list(self.PROVIDERS.keys())
-
-    def get_or_create_weave_model(self, model_name: str) -> weave.Model:
-        """
-        Get or create a Weave model for tracking and evaluation.
-
-        Args:
-            model_name: The name of the model to get or create
-
-        Returns:
-            A Weave model instance
-        """
-        if model_name not in self.weave_models:
-            # Create a new Weave model and register it
-            self.weave_models[model_name] = weave.Model(
-                name=model_name, description=f"OpenRouter model: {model_name}"
-            )
-
-        return self.weave_models[model_name]
 
     def send_message(self, messages: list[dict[str, Any]], model: str) -> str:
         """
@@ -94,31 +68,32 @@ class VLMClient:
         if not self.is_configured():
             raise ValueError("OpenRouter API key is not configured")
 
-        # Get or create a Weave model for this model
-        weave_model = self.get_or_create_weave_model(model)
-
         try:
-            # Track the model call with Weave
-            with weave_model.trace(messages=messages) as trace:
-                completion = cast(OpenAI, self.client).chat.completions.create(
-                    model=model, messages=messages  # type: ignore
-                )
+            max_retries = 5
+            wait_seconds = 5
+            for attempt in range(1, max_retries + 1):
+                try:
+                    completion = cast(OpenAI, self.client).chat.completions.create(model=model, messages=messages)  # type: ignore
 
-                response_text = str(completion.choices[0].message.content)
+                    if (
+                        (not completion)
+                        or (not hasattr(completion, "choices"))
+                        or (not completion.choices)
+                        or (len(completion.choices) == 0)
+                    ):
+                        raise ValueError("Invalid completion received from API")
 
-                # Add response to the trace
-                trace.output = response_text
-
-                # Record metadata about the API call
-                trace.add_metadata(
-                    {
-                        "model": model,
-                        "num_messages": len(messages),
-                        "response_length": len(response_text),
-                    }
-                )
-
-                return response_text
+                    response_text = str(completion.choices[0].message.content)
+                    return response_text
+                except Exception as e:
+                    logger.error(
+                        f"Attempt {attempt}: Error calling OpenRouter API: {str(e)}"
+                    )
+                    if attempt < max_retries:
+                        time.sleep(wait_seconds)
+                    else:
+                        raise
+            raise RuntimeError("No valid response obtained from API")
         except Exception as e:
             logger.error(f"Error calling OpenRouter API: {str(e)}")
             raise

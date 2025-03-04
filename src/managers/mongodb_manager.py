@@ -9,7 +9,7 @@ from typing import Any
 from loguru import logger
 from pymongo import MongoClient
 
-from ..utils.db_schemas import ProposalSchema, PuzzleSchema
+from ..utils.db_schemas import EvaluationResultSchema, ProposalSchema, PuzzleSchema
 from .base_manager import BaseManager
 
 
@@ -259,3 +259,29 @@ class MongoDBManager(BaseManager):
         if data is None:
             return None
         return PuzzleSchema(**data)
+
+    def insert_evaluation_result(self, result: EvaluationResultSchema) -> None:
+        doc = result.model_dump()
+        self._db["evaluation_results"].insert_one(doc)
+
+    def get_all_proposals(
+        self,
+        start_template: int = 0,
+        stop_template: int = 1000,
+        tiers: list[str] | None = None,
+    ) -> list[ProposalSchema]:
+        """Retrieve all proposals with tiers specified in tiers list."""
+        if tiers is None:
+            tiers = ["CORRECT", "INCORRECT_EASY", "INCORRECT_MEDIUM", "INCORRECT_HARD"]
+        filter_query = {
+            "tier": {"$in": tiers},
+        }
+        cursor = self._db["proposals"].find(filter_query).sort("id")
+        proposals: list[ProposalSchema] = []
+        for proposal_doc in cursor:
+            puzzle_id = proposal_doc["id"]
+            template_id, iteration_id = parse_puzzle_id(puzzle_id)
+            if template_id < start_template or template_id > stop_template:
+                continue
+            proposals.append(ProposalSchema(**proposal_doc))
+        return proposals

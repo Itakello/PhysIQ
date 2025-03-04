@@ -229,13 +229,13 @@ def generate_feedback_message(status: str, attempt_number: int) -> str:
         return template
 
     # Debug: Print the template and next attempt
-    print(f"DEBUG - Template for {status}: {template}")
-    print(f"DEBUG - Next attempt: {next_attempt}")
+    # print(f"DEBUG - Template for {status}: {template}")
+    # print(f"DEBUG - Next attempt: {next_attempt}")
 
     # For other statuses, just replace the attempt placeholder
     formatted_message = template.format(attempt=next_attempt)
 
     # Debug: Print the formatted message
-    print(f"DEBUG - Formatted message: {formatted_message}")
+    # print(f"DEBUG - Formatted message: {formatted_message}")
 
     return formatted_message

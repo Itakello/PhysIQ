@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -98,3 +100,19 @@ class RankingFewShotData(FewShotData):
     proposals: list[ProposalSchema]
     images_list: list[list[str]]
     metadata: RankingMetadata
+
+
+class EvaluationResultSchema(BaseModel):
+    """Schema for storing evaluation results in MongoDB."""
+
+    evaluation_type: str
+    model_name: str
+    sample: SampleData
+    few_shot_count: int
+    few_shot_frames: int
+    correct: bool
+    ground_truth: Any
+    response: Any
+    attempt_statuses: list[str] | None = (
+        None  # Track statuses for interactive evaluation attempts
+    )

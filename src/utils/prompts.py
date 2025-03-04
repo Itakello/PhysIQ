@@ -102,7 +102,7 @@ USER_TEMPLATES = {
     "binary": f"Will the <TARGET_OBJ1> and <TARGET_OBJ2> come into contact for {CONTACT_DURATION} seconds?",
     "ranking": f"""Will the <TARGET_OBJ1> and <TARGET_OBJ2> come into contact for {CONTACT_DURATION} seconds?
 
-Rank the following proposals by their likelihood of success:
+Rank the proposals by their likelihood of success:
 """,
     "confidence": f"""What is the probability that the <TARGET_OBJ1> and <TARGET_OBJ2> will come into contact for {CONTACT_DURATION} seconds?
 
