@@ -16,13 +16,14 @@ class VLMClient:
             "google/gemini-2.0-flash-001",
         ],
         "Meta": [
-            "meta-llama/llama-3.2-11b-vision-instruct"
+            "meta-llama/llama-3.2-11b-vision-instruct",
             "meta-llama/llama-3.2-90b-vision-instruct",
         ],
         "Qwen": [
             "qwen/qwen2.5-vl-72b-instruct",
         ],
         "MistralAI": ["mistralai/pixtral-large-2411"],
+        "xAI": ["x-ai/grok-2-vision-1212"],
     }
 
     # Flat list of all models

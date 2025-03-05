@@ -22,6 +22,7 @@ class ArgparseManager(BaseManager):
         self.parser.add_argument(
             "--debug",
             action="store_true",
+            default=False,
             help="Enable debug logging level",
         )
 

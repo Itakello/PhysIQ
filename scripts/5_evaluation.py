@@ -4,6 +4,7 @@ import random
 from typing import Any
 
 from loguru import logger
+from tqdm import tqdm
 
 from prompt_tester import select_representative_frames
 from src.evaluation.interactive_eval import (
@@ -52,7 +53,6 @@ def determine_correctness(
     proposal: ProposalSchema | RankingProposalItem,
     model_answer: str,
     sample: SampleData | RankingSampleData,
-    attempt_statuses: list[str] | None = None,
 ) -> tuple[bool, Any]:
     """Determine whether the model answer is correct and return the expected answer.
 
@@ -75,7 +75,7 @@ def determine_correctness(
             import re
 
             numbers = re.findall(r"\d+", model_answer)
-            parsed_answer = list(map(int, numbers))
+            parsed_answer = list(map(int, numbers))[-4:]
         except Exception as e:
             logger.error(f"Error parsing model answer for ranking evaluation: {e}")
             parsed_answer = []
@@ -129,7 +129,7 @@ def main() -> None:
         )
         return
 
-    random.seed(args.seed)
+    # random.seed(args.seed)
 
     # Create prompt manager for the given evaluation type
     prompt_manager = PromptManager(prompt_type=eval_type)
@@ -161,8 +161,10 @@ def main() -> None:
     if "all" in args.models:
         args.models = vlm_client.ALL_MODELS
 
-    # Iterate over each template and proposal type group
-    for template_id in sorted(grouped_proposals.keys()):
+    # Iterate over each template and proposal type group with a main progress bar
+    for template_id in tqdm(
+        sorted(grouped_proposals.keys()), desc="Templates", unit="template"
+    ):
         if eval_type == "sanity_check":
             correct_proposals = grouped_proposals[template_id].get("CORRECT", [])
             incorrect_proposals = []
@@ -196,7 +198,10 @@ def main() -> None:
         else:
             selected_proposals = []
 
-        for proposal in selected_proposals:
+        # Progress bar for proposals loop (disappears after completion)
+        for proposal in tqdm(
+            selected_proposals, desc="Proposals", unit="proposal", leave=False
+        ):
             # Get the sample using the helper function based on evaluation type
             sample = get_sample(
                 eval_type,
@@ -214,8 +219,8 @@ def main() -> None:
                 insert_few_shot=(eval_type != "confidence" and args.few_shot_count > 0),
             )
 
-            # Evaluate for all models provided
-            for model in args.models:
+            # Evaluate for all models provided with a progress bar (disappears after completion)
+            for model in tqdm(args.models, desc="Models", unit="model", leave=False):
                 logger.debug(
                     f"Sending prompt to model {model} for sample {proposal.id}..."
                 )
@@ -307,12 +312,12 @@ def main() -> None:
                     # For confidence evaluation, we do not verify; always record False and ground_truth as None
                     correct = False
                     expected_answer = None
-                    logger.info(f"{proposal.id}: Confidence {model_answer}")
+                    logger.debug(f"{proposal.id}: Confidence {model_answer}")
                 else:
                     correct, expected_answer = determine_correctness(
-                        eval_type, proposal, model_answer, sample, attempt_statuses
+                        eval_type, proposal, model_answer, sample
                     )
-                    logger.info(f"{proposal.id}: {correct}")
+                    logger.debug(f"{proposal.id}: {correct}")
 
                 result = EvaluationResultSchema(
                     evaluation_type=eval_type,
