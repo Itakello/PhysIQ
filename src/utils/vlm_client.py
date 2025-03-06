@@ -15,15 +15,11 @@ class VLMClient:
         "Google": [
             "google/gemini-2.0-flash-001",
         ],
-        "Meta": [
-            "meta-llama/llama-3.2-11b-vision-instruct",
-            "meta-llama/llama-3.2-90b-vision-instruct",
-        ],
         "Qwen": [
             "qwen/qwen2.5-vl-72b-instruct",
         ],
         "MistralAI": ["mistralai/pixtral-large-2411"],
-        "xAI": ["x-ai/grok-2-vision-1212"],
+        "Anthropic": ["anthropic/claude-3.5-sonnet"],
     }
 
     # Flat list of all models
@@ -51,7 +47,12 @@ class VLMClient:
         """Get the list of all providers."""
         return list(self.PROVIDERS.keys())
 
-    def send_message(self, messages: list[dict[str, Any]], model: str) -> str:
+    def send_message(
+        self,
+        messages: list[dict[str, Any]],
+        model: str,
+        max_completion_tokens: int | None = None,
+    ) -> str:
         """
         Send messages to the selected model and return the response.
         Uses Weave to track the prompt and response.
@@ -74,7 +75,7 @@ class VLMClient:
             wait_seconds = 5
             for attempt in range(1, max_retries + 1):
                 try:
-                    completion = cast(OpenAI, self.client).chat.completions.create(model=model, messages=messages)  # type: ignore
+                    completion = cast(OpenAI, self.client).chat.completions.create(model=model, messages=messages, max_completion_tokens=max_completion_tokens)  # type: ignore
 
                     if (
                         (not completion)

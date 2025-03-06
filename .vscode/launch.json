@@ -113,25 +113,26 @@
                 //"--stop_template",
                 //"0",
                 "--iterations",
-                "5",
+                "3",
                 "--db_name",
                 "physiq_db",
                 "--evaluation_type",
-                "sanity_check",
-                //"binary",
+                //"sanity_check",
+                "binary",
                 //"ranking",
                 //"confidence",
                 //"interactive",
                 "--models",
                 //"openai/gpt-4o",
+                //"meta-llama/llama-3.2-11b-vision-instruct",
                 "all",
                 "--few_shot_count",
                 "2",
                 "--few_shot_frames",
-                "1",
+                "2",
                 "--output_dir",
                 "evaluation_results",
-                "--save_to_db"
+                //"--save_to_db"
             ]
         },
         {
@@ -144,7 +145,6 @@
             "args": [
                 "--db_name",
                 "physiq_db",
-                ""
             ]
         },
     ]

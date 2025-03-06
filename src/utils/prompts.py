@@ -60,15 +60,15 @@ SYSTEM_TEMPLATES = {
 
 **Task:** You will receive 4 images, each depicting a different proposal for solving the puzzle. Rank the proposals clearly based on their likelihood of satisfying the goal, from highest likelihood (first) to lowest likelihood (last).
 
-**Response format:** List proposal indices in order from highest to lowest likelihood (e.g., `[3, 1, 4, 2]`).
+**Response format:** List ONLY the proposal indices in order from highest to lowest likelihood (e.g., `[3, 1, 4, 2]`). Do NOT include explanations, reasoning, or any other additional text.
 """,
-    "confidence": f"""You are a physics expert estimating the probability that specific outcomes in physics simulations will occur.
+    "confidence": f"""You are an expert evaluator tasked exclusively with providing concise numerical probability estimates for outcomes of physics simulations.
 
 {SIMULATION_CONDITIONS}
 
 **Task:** Given an initial image, estimate the probability that the specified objective is successfully achieved.
 
-**Response format:** Provide your answer strictly as a numerical percentage (e.g., "85%").""",
+**Response format:** Provide ONLY a numerical percentage (e.g., "85%"). Do NOT include explanations, reasoning, or any other additional text.""",
     "interactive": f"""You are a physics expert creating solutions for physics simulations.
 
 {SIMULATION_CONDITIONS}

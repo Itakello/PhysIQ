@@ -298,8 +298,18 @@ def main() -> None:
                     model_answer = final_status
 
                 else:
+                    if eval_type == "confidence":
+                        max_completion_tokens = 2
+                    elif eval_type == "ranking":
+                        max_completion_tokens = 15
+                    elif eval_type == "binary":
+                        max_completion_tokens = 1
+                    else:
+                        max_completion_tokens = None
                     # For other evaluation types, just get a single response
-                    response = vlm_client.send_message(messages, model)
+                    response = vlm_client.send_message(
+                        messages, model, max_completion_tokens=max_completion_tokens
+                    )
 
                     if isinstance(response, list):
                         model_answer = " ".join(str(item) for item in response)
