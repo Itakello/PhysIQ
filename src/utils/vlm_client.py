@@ -18,7 +18,6 @@ class VLMClient:
         "Qwen": [
             "qwen/qwen2.5-vl-72b-instruct",
         ],
-        "MistralAI": ["mistralai/pixtral-large-2411"],
         "Anthropic": ["anthropic/claude-3.5-sonnet"],
     }
 

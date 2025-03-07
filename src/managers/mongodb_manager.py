@@ -285,3 +285,24 @@ class MongoDBManager(BaseManager):
                 continue
             proposals.append(ProposalSchema(**proposal_doc))
         return proposals
+
+    def get_evaluation_results_grouped_by_model(
+        self, query: dict
+    ) -> dict[str, list[EvaluationResultSchema]]:
+        """Return evaluation results grouped by model in alphabetical order.
+
+        Parameters:
+            query (dict): The query to filter evaluation results.
+
+        Returns:
+            dict[str, list[EvaluationResultSchema]]: Dictionary where keys are model names and values are lists of evaluation results.
+        """
+        grouped: dict[str, list[EvaluationResultSchema]] = {}
+        for doc in self._db["evaluation_results"].find(query):
+            result = EvaluationResultSchema(**doc)
+            model = result.model_name
+            if model not in grouped:
+                grouped[model] = []
+            grouped[model].append(result)
+        # Return dictionary with keys sorted in alphabetical order.
+        return {model: grouped[model] for model in sorted(grouped.keys())}
