@@ -18,6 +18,7 @@ INTERACTIVE_STATUSES = {
     "OVERLAPPING",
     "GOAL_NOT_REACHED",
     "GOAL_REACHED",
+    "JSON_INCORRECT_FORMAT",
 }
 
 SIMULATION_CONDITIONS = """Simulation conditions for all tasks:
@@ -94,6 +95,38 @@ Provide your solution strictly in the following JSON format:
   "radius": "<ball_radius>"
 }}
 ```""",
+    "interactive_two_ball": f"""You are a physics expert creating solutions for physics simulations.
+
+{SIMULATION_CONDITIONS}
+
+**Task:**
+Your objective is to place **TWO** new balls inside the simulation area to achieve the specified goal.
+Clearly define your solution by specifying for each ball:
+- "x": horizontal position of the ball center (0 is left, maximum is {SCENE_DIMENSIONS[0]} on the right)
+- "y": vertical position of the ball center (0 is bottom, maximum is {SCENE_DIMENSIONS[1]} at the top)
+- "radius": size of the ball (minimum {MIN_RADIUS}, maximum {MAX_RADIUS})
+
+**Important rules for placing the balls:**
+- Each ball **must remain fully within the visible simulation boundaries**.
+- Each ball **cannot overlap with existing objects or with each other**.
+
+**Response format (always follow exactly):**
+Provide your solution strictly in the following JSON format:
+
+```json
+[
+  {{
+    "x": "<x-coordinate-ball-1>",
+    "y": "<y-coordinate-ball-1>",
+    "radius": "<ball-1-radius>"
+  }},
+  {{
+    "x": "<x-coordinate-ball-2>",
+    "y": "<y-coordinate-ball-2>",
+    "radius": "<ball-2-radius>"
+  }}
+]
+```""",
 }
 
 # User prompt templates for different levels of instruction detail
@@ -108,6 +141,7 @@ Rank the proposals by their likelihood of success:
 
 Answer:""",
     "interactive": "Try 1:",
+    "interactive_two_ball": "Try 1:",
 }
 
 # Interactive response templates for different evaluation outcomes
@@ -116,7 +150,14 @@ INTERACTIVE_RESPONSE_TEMPLATES = {
 
 **Reason**: Your ball exceeds the simulation boundaries.
 
-**Try again**, ensuring he ball fits entirely within the boundaries (0 ≤ x ≤ 256, 0 ≤ y ≤ 256). Provide a new proposal strictly in the same JSON format.
+**Try again**, ensuring the ball fits entirely within the boundaries (0 ≤ x ≤ 256, 0 ≤ y ≤ 256). Provide a new proposal strictly in the same JSON format.
+
+Try {attempt}:""",
+    "OUTSIDE_BOUNDARIES_TWO_BALL": """Your previous proposal couldn't be applied.
+
+**Reason**: One or both of your balls exceed the simulation boundaries.
+
+**Try again**, ensuring both balls fit entirely within the boundaries (0 ≤ x ≤ 256, 0 ≤ y ≤ 256). Provide a new proposal strictly in the same JSON format.
 
 Try {attempt}:""",
     "OVERLAPPING": """Your previous proposal couldn't be applied.
@@ -124,6 +165,13 @@ Try {attempt}:""",
 **Reason**: Your ball overlaps existing objects.
 
 **Try again**, ensuring the ball does not overlap with any other object. Provide a new proposal strictly in the same JSON format.
+
+Try {attempt}:""",
+    "OVERLAPPING_TWO_BALL": """Your previous proposal couldn't be applied.
+
+**Reason**: One or both of your balls overlap with existing objects or with each other.
+
+**Try again**, ensuring neither ball overlaps with any existing object or with each other. Provide a new proposal strictly in the same JSON format.
 
 Try {attempt}:""",
     "GOAL_NOT_REACHED": """The simulation ran successfully, but your proposal didn't achieve the goal.
@@ -137,4 +185,39 @@ Carefully analyze the frames and **try again**. Provide a new proposal strictly 
 Try {attempt}:""",
     "GOAL_REACHED": """Congratulations! Your proposal successfully achieved the goal.
 The simulation shows that the target objects came into contact as required.""",
+    "JSON_INCORRECT_FORMAT": """Your previous proposal couldn't be applied.
+
+**Reason**: The JSON format in your response is incorrect or missing.
+
+**Try again**, ensuring you provide a valid JSON object with the required fields (x, y, radius) in the following format:
+```json
+{
+  "x": 100,
+  "y": 150,
+  "radius": 15
+}
+```
+
+Try {attempt}:""",
+    "JSON_INCORRECT_FORMAT_TWO_BALL": """Your previous proposal couldn't be applied.
+
+**Reason**: The JSON format in your response is incorrect or missing.
+
+**Try again**, ensuring you provide a valid JSON array with two objects, each containing the required fields (x, y, radius) in the following format:
+```json
+[
+  {
+    "x": 100,
+    "y": 150,
+    "radius": 15
+  },
+  {
+    "x": 200,
+    "y": 100,
+    "radius": 10
+  }
+]
+```
+
+Try {attempt}:""",
 }

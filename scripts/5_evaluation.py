@@ -1,5 +1,4 @@
 import base64
-import os
 import random
 from typing import Any
 
@@ -134,6 +133,11 @@ def main() -> None:
     # Create prompt manager for the given evaluation type
     prompt_manager = PromptManager(prompt_type=eval_type)
 
+    # We'll store a separate prompt manager for 2-ball puzzles if this is an interactive evaluation
+    prompt_manager_two_ball = None
+    if eval_type == "interactive":
+        prompt_manager_two_ball = PromptManager(prompt_type="interactive_two_ball")
+
     # Get all proposals within the specified template and iteration range
     all_proposals = mongo_manager.get_all_proposals(
         start_template=args.start_template,
@@ -214,7 +218,17 @@ def main() -> None:
                 logger.error(f"No sample found for ID {proposal.id}")
                 continue
 
-            messages = prompt_manager.build_openai_messages(
+            # For interactive evaluation, select the prompt manager based on whether this is a 1_ball or 2_ball puzzle
+            if eval_type == "interactive":
+                # Check if the puzzle tier indicates a 2-ball template
+                is_two_ball = sample.puzzle.metadata.tier.startswith("TWO_BALLS")
+                selected_prompt_manager = (
+                    prompt_manager_two_ball if is_two_ball else prompt_manager
+                )
+            else:
+                selected_prompt_manager = prompt_manager
+
+            messages = selected_prompt_manager.build_openai_messages(
                 sample,
                 insert_few_shot=(eval_type != "confidence" and args.few_shot_count > 0),
             )
@@ -244,11 +258,11 @@ def main() -> None:
                             response=response,
                             puzzle=sample.puzzle.model_dump(),
                             visualize=False,
-                            num_screenshots=10,
+                            num_screenshots=3,  # if above 2, it takes one screenshot every 0.5 seconds
                         )
 
-                        # Record the status for this attempt
-                        attempt_statuses.append(eval_result.status)
+                        # Record the full evaluation result for this attempt
+                        attempt_statuses.append(eval_result)
 
                         # If goal reached, we're done
                         if eval_result.status == "GOAL_REACHED":
@@ -342,7 +356,7 @@ def main() -> None:
                     correct=correct,
                     ground_truth=expected_answer,
                     response=model_answer,
-                    attempt_statuses=attempt_statuses,
+                    interactive_results=attempt_statuses,
                 )
                 if args.save_to_db:
                     mongo_manager.insert_evaluation_result(result)

@@ -102,6 +102,15 @@ class RankingFewShotData(FewShotData):
     metadata: RankingMetadata
 
 
+class InteractiveEvalResult(BaseModel):
+    """Result of an interactive evaluation."""
+
+    status: str
+    message: str
+    ball_data: dict | list[dict] | None = None
+    screenshots: list[str] | None = None  # List of file paths to screenshots
+
+
 class EvaluationResultSchema(BaseModel):
     """Schema for storing evaluation results in MongoDB."""
 
@@ -113,6 +122,4 @@ class EvaluationResultSchema(BaseModel):
     correct: bool
     ground_truth: Any
     response: Any
-    attempt_statuses: list[str] | None = (
-        None  # Track statuses for interactive evaluation attempts
-    )
+    interactive_results: list[InteractiveEvalResult] | None = None

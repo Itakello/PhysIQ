@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 from statistics import mean
-from typing import Any
+from typing import Any, Dict, Tuple
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -158,6 +158,10 @@ def plot_mean_attempts_per_template(db_manager: MongoDBManager) -> dict[str, lis
     plt.bar(
         x, sorted_means, tick_label=sorted_templates, width=0.7, color=sorted_colors
     )
+
+    # Adjust x-axis limits to use the full width
+    plt.xlim(-0.5, total - 0.5)  # Set limits from -0.5 to total-0.5 to use full width
+
     plt.xticks(rotation=45)
     plt.xlabel("Template")
     plt.ylabel("Mean Attempts")
@@ -401,7 +405,7 @@ def plot_confidence_violin_by_proposal_type(db_manager: MongoDBManager) -> None:
         for m in sorted_global_models
     ]
     fig.legend(
-        handles=legend_handles, loc="upper right", bbox_to_anchor=(0.99, 0.89), ncol=1
+        handles=legend_handles, loc="upper right", bbox_to_anchor=(0.99, 1.00), ncol=1
     )
 
     plt.tight_layout(rect=(0, 0, 1, 0.95))
@@ -414,12 +418,13 @@ def plot_confidence_violin_by_proposal_type(db_manager: MongoDBManager) -> None:
     )
 
 
-def plot_confidence_violin_by_template_difficulty(
+def plot_confidence_violin_by_both(
     db_manager: MongoDBManager, grouped_templates: dict[str, list[int]]
 ) -> None:
-    """Generate and save a plot with 3 subplots (one row, 3 columns), each for a template difficulty group,
+    """Generate and save a plot with 6 subplots (2 rows, 3 columns), each for a template difficulty group,
     showing violin plots of confidence distributions for each model from 'confidence' evaluation results.
     The template difficulty is determined by the grouped_templates dictionary returned from plot_mean_attempts_per_template.
+    The plots are divided into two rows: top row for correct proposals and bottom row for incorrect proposals.
     """
 
     # Retrieve confidence evaluation results using the existing EvaluationPlotter
@@ -428,8 +433,13 @@ def plot_confidence_violin_by_template_difficulty(
 
     # Define the difficulty groups
     difficulties = ["easy", "medium", "hard"]
-    # Initialize a dictionary to store confidence values by difficulty and model
-    data: dict[str, dict[str, list[int]]] = {diff: {} for diff in difficulties}
+    # Define correctness categories
+    correctness = ["correct", "incorrect"]
+
+    # Initialize a dictionary to store confidence values by difficulty, correctness, and model
+    data: dict[str, dict[str, dict[str, list[int]]]] = {
+        diff: {corr: {} for corr in correctness} for diff in difficulties
+    }
 
     # Iterate over the evaluation results
     for model, results in grouped_results.items():
@@ -440,6 +450,7 @@ def plot_confidence_violin_by_template_difficulty(
                 if not match:
                     continue
                 confidence = int(match.group(1))
+
                 # Extract template ID from sample.puzzle.id (assumes format 'template:iteration')
                 sample = result.sample
                 puzzle_id = str(sample.puzzle.id)
@@ -447,53 +458,82 @@ def plot_confidence_violin_by_template_difficulty(
                     continue
                 template_str, _ = puzzle_id.split(":", 1)
                 template_id = int(template_str)
+
+                # Get proposal tier to determine if correct or incorrect
+                tier = str(result.sample.proposal.tier).lower()
+                is_correct = tier == "correct"
+                corr_category = "correct" if is_correct else "incorrect"
+                # if tier not in ["correct", "incorrect_easy"]:
+                # continue
+
                 # Determine which difficulty group this template belongs to
                 for diff in difficulties:
                     if template_id in grouped_templates.get(diff, []):
-                        data[diff].setdefault(model, []).append(confidence)
+                        data[diff][corr_category].setdefault(model, []).append(
+                            confidence
+                        )
                         break
             except Exception:
                 continue
 
     # Determine global sorted list of models across all difficulties for consistent ordering
     global_models = sorted(
-        {model for diff in difficulties for model in data[diff].keys()}
+        {
+            model
+            for diff in difficulties
+            for corr in correctness
+            for model in data[diff][corr].keys()
+        }
     )
     model_to_color = {model: get_model_color(model) for model in global_models}
 
-    # Set up subplots: 1 row x 3 columns
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=True)
-    if not isinstance(axes, np.ndarray):
-        axes = [axes]
+    # Set up subplots: 2 rows x 3 columns
+    fig, axes = plt.subplots(2, 3, figsize=(18, 12), sharey=True)
 
-    for idx, diff in enumerate(difficulties):
-        ax = axes[idx]
-        violin_data = []
-        positions = []
-        labels = []
-        for i, model in enumerate(global_models):
-            confidences = data[diff].get(model, [])
-            violin_data.append(confidences)
-            positions.append(i + 1)
-            labels.append(model.split("/")[-1])
-        if violin_data:
-            parts = ax.violinplot(
-                violin_data, positions=positions, showmeans=True, showmedians=False
+    for row_idx, corr in enumerate(correctness):
+        for col_idx, diff in enumerate(difficulties):
+            ax = axes[row_idx, col_idx]
+            violin_data = []
+            positions = []
+            labels = []
+
+            for i, model in enumerate(global_models):
+                confidences = data[diff][corr].get(model, [])
+                violin_data.append(confidences)
+                positions.append(i + 1)
+                labels.append(model.split("/")[-1])
+
+            if violin_data and any(len(v) > 0 for v in violin_data):
+                parts = ax.violinplot(
+                    violin_data, positions=positions, showmeans=True, showmedians=False
+                )
+                # Set each violin's color based on model
+                for i, body in enumerate(parts["bodies"]):
+                    if i < len(global_models):  # Safety check
+                        model = global_models[i]
+                        body.set_facecolor(model_to_color.get(model, "#7f7f7f"))
+                        body.set_edgecolor("black")
+                        body.set_alpha(0.7)
+
+            ax.set_xticks(positions)
+            ax.set_title(
+                f"{diff.capitalize()} Templates - {corr.capitalize()} Proposals"
             )
-            # Set each violin's color based on model
-            for i, body in enumerate(parts["bodies"]):
-                model = global_models[i]
-                body.set_facecolor(model_to_color.get(model, "#7f7f7f"))
-                body.set_edgecolor("black")
-                body.set_alpha(0.7)
-        ax.set_xticks(positions)
-        ax.set_title(f"Template Difficulty: {diff.capitalize()}")
-        ax.set_xlabel("Model")
-        if idx == 0:
-            ax.set_ylabel("Confidence (%)")
-        ax.grid(True)
 
-    fig.suptitle("Confidence Violin Plots by Template Difficulty", fontsize=16)
+            # Only add x-axis label to bottom row
+            if row_idx == 1:
+                ax.set_xlabel("Model")
+
+            # Only add y-axis label to leftmost column
+            if col_idx == 0:
+                ax.set_ylabel("Confidence (%)")
+
+            ax.grid(True)
+
+    fig.suptitle(
+        "Confidence Violin Plots by Template Difficulty and Correctness", fontsize=16
+    )
+
     legend_handles = [
         mpatches.Patch(
             facecolor=model_to_color[model],
@@ -502,14 +542,16 @@ def plot_confidence_violin_by_template_difficulty(
         )
         for model in global_models
     ]
+
     fig.legend(
-        handles=legend_handles, loc="upper right", bbox_to_anchor=(0.99, 0.83), ncol=1
+        handles=legend_handles, loc="upper right", bbox_to_anchor=(0.99, 1.0), ncol=1
     )
+
     plt.tight_layout(rect=(0, 0, 1, 0.95))
-    plotter.save_plot(plt, "confidence_violin_by_template_difficulty.png")
+    plotter.save_plot(plt, "confidence_violin_by_template_both.png")
     plt.close()
     print(
-        f"Confidence violin plots by template difficulty saved to: {plotter.base_dir / 'confidence_violin_by_template_difficulty.png'}"
+        f"Confidence violin plots by template both and correctness saved to: {plotter.base_dir / 'confidence_violin_by_template_both.png'}"
     )
 
 
@@ -655,16 +697,14 @@ def print_ranking_statistics(db_manager: MongoDBManager) -> None:
             # Initialize model stats if not already present
             if model not in accuracy_stats:
                 accuracy_stats[model] = {}
-
-            # Initialize shot count stats for this model
             accuracy_stats[model][shot] = {"correct": 0, "total": 0}
             position_stats[shot][model] = {}
 
-            # Initialize position stats for this model
-            for pos in range(4):  # 4 positions (0-indexed)
+            # Initialize position stats for each model (positions 0 to 3)
+            for pos in range(4):
                 position_stats[shot][model][pos] = {"correct": 0, "total": 0}
 
-            # Track invalid responses
+            # Track invalid responses under key -1
             position_stats[shot][model][-1] = {"count": 0}
 
             # Process each evaluation result
@@ -697,94 +737,57 @@ def print_ranking_statistics(db_manager: MongoDBManager) -> None:
                             if model_ranking == ground_truth:
                                 accuracy_stats[model][shot]["correct"] += 1
 
-                            # MODIFIED LOGIC: Find where the model put its #1 choice
-                            # and which ground truth position that corresponds to
-                            model_first_choice_pos = model_ranking.index(1)
+                            # The model's #1 choice is the first element in model_ranking:
+                            chosen_proposal_id = model_ranking[0]
+                            # Now find *where* that ID is in ground_truth:
+                            gt_position = ground_truth.index(chosen_proposal_id)
 
-                            # Find which ground truth proposal was at this position
-                            ground_truth_proposal = ground_truth[model_first_choice_pos]
+                            position_stats[shot][model][gt_position]["total"] += 1
 
-                            # The ground_truth_proposal is 1-indexed (1,2,3,4)
-                            # We need to convert to 0-indexed for our stats dictionary
-                            ground_truth_proposal_idx = ground_truth_proposal - 1
-
-                            # Record that the model's #1 choice was assigned to this ground truth proposal
-                            position_stats[shot][model][ground_truth_proposal_idx][
-                                "total"
-                            ] += 1
                         else:
-                            # Response doesn't have enough numbers
                             position_stats[shot][model][-1]["count"] += 1
                     except ValueError:
-                        # Couldn't parse the numbers
                         position_stats[shot][model][-1]["count"] += 1
                 else:
-                    # Response doesn't match the pattern
                     position_stats[shot][model][-1]["count"] += 1
 
                 # Increment total count for accuracy stats
                 accuracy_stats[model][shot]["total"] += 1
 
-    # Create position accuracy plots for each few-shot count
-    for shot in shot_values:
+    # --- Combined Position Accuracy Plot ---
+    # Instead of separate plots for each shot, create a single figure with subplots for 0-shot, 1-shot, and 2-shot
+    fig, axes = plt.subplots(
+        1, len(shot_values), figsize=(24, 8), constrained_layout=True
+    )
+    if not isinstance(axes, (list, np.ndarray)):
+        axes = [axes]
+    for ax, shot in zip(axes, shot_values):
         stats_for_shot = position_stats.get(shot, {})
         if not stats_for_shot:
-            print(f"No data for {shot}-shot")
+            ax.text(0.5, 0.5, f"No data for {shot}-shot", ha="center", va="center")
+            ax.set_title(f"{shot}-shot")
+            ax.axis("off")
             continue
-
-        # Get all models for this shot
         models = sorted(stats_for_shot.keys())
-        if not models:
-            continue
-
-        # Set up the plot
-        plt.figure(figsize=(12, 8))
-
-        # Number of positions
         num_positions = len(position_labels)
-
-        # Width of each bar group
         group_width = 0.8
-
-        # Width of each bar within a group
-        bar_width = group_width / len(models)
-
-        # Set up colors for each model
+        bar_width = group_width / len(models) if models else group_width
         colors = [get_model_color(model) for model in models]
-
-        # For each position (First, Second, Third, Fourth)
         for pos_idx, pos_label in enumerate(position_labels):
-            # For each model
             for model_idx, model in enumerate(models):
-                # Calculate the x position for this bar
                 x_pos = pos_idx + (model_idx - len(models) / 2 + 0.5) * bar_width
-
-                # Get the stats for this position and model
                 pos_stats = stats_for_shot[model].get(
                     pos_idx, {"correct": 0, "total": 0}
                 )
-                correct = pos_stats.get("correct", 0)
-                total = pos_stats.get("total", 0)
-
-                # Calculate percentage
+                total_responses = accuracy_stats[model][shot]["total"]
                 percentage = (
-                    (total / accuracy_stats[model][shot]["total"]) * 100
-                    if accuracy_stats[model][shot]["total"] > 0
+                    (pos_stats["total"] / total_responses * 100)
+                    if total_responses > 0
                     else 0
                 )
-
-                # Plot the bar with percentage
-                plt.bar(
-                    x_pos,
-                    percentage,
-                    width=bar_width,
-                    color=colors[model_idx],
-                    label=model.split("/")[-1] if pos_idx == 0 else "",
-                )
-
-                # Add percentage label on top of the bar if it's non-zero
+                ax.bar(x_pos, percentage, width=bar_width, color=colors[model_idx])
                 if percentage > 0:
-                    plt.text(
+                    ax.text(
                         x_pos,
                         percentage + 0.5,
                         f"{percentage:.1f}%",
@@ -792,71 +795,48 @@ def print_ranking_statistics(db_manager: MongoDBManager) -> None:
                         va="bottom",
                         fontsize=9,
                     )
+        ax.set_xlabel("Position in Ground Truth Ranking")
+        if ax == axes[0]:
+            ax.set_ylabel("Percentage (%)")
+        ax.set_title(f"Distribution of Correct Proposal Position ({shot}-shot)")
+        ax.set_xticks(range(num_positions))
+        ax.set_xticklabels(position_labels)
+        ax.grid(axis="y", linestyle="--", alpha=0.7)
+        # Set y-axis limit to ensure consistent scale across subplots
+        ax.set_ylim(0, 40)
 
-        # Set up the plot labels and title
-        plt.xlabel("Position in Ground Truth Ranking")
-        plt.ylabel("Percentage (%)")
-        plt.title(f"Distribution of Correct Proposal Position ({shot}-shot)")
-        plt.xticks(range(num_positions), position_labels)
-        plt.grid(axis="y", linestyle="--", alpha=0.7)
+    # Create a global legend for models
+    union_models: set[str] = set()
+    for shot in shot_values:
+        stats_for_shot = position_stats.get(shot, {})
+        union_models.update(stats_for_shot.keys())
+    union_models_list: list[str] = sorted(list(union_models))
+    legend_handles = [
+        mpatches.Patch(color=get_model_color(m), label=m.split("/")[-1])
+        for m in union_models_list
+    ]
+    plt.legend(handles=legend_handles, loc="upper right", title="Models")
+    plotter.save_plot(plt, "position_accuracy_combined.png")
+    plt.close()
 
-        # Add legend with model names
-        plt.legend(title="Models", bbox_to_anchor=(0.78, 1), loc="upper left")
-
-        # Adjust layout and save
-        plt.tight_layout()
-        plotter.save_plot(plt, f"position_accuracy_{shot}shot.png")
-        plt.close()
-
-        # Print only invalid proposals statistics to terminal
-        print(f"\nInvalid Proposal Statistics for {shot}-shot:")
-        for model in models:
-            total_responses = accuracy_stats[model][shot]["total"]
-            invalid = position_stats[shot][model][-1].get("count", 0)
-            invalid_percentage = (
-                (invalid / total_responses) * 100 if total_responses > 0 else 0
-            )
-            print(
-                f"  Model: {model} - Invalid: {invalid} ({invalid_percentage:.1f}% of {total_responses} total)"
-            )
-
+    # --- Overall Accuracy Plot ---
     # Create a plot showing model accuracies across different shot counts
     plt.figure(figsize=(12, 8))
-
-    # Get all models
     all_models = sorted(accuracy_stats.keys())
     if not all_models:
         print("No models found for accuracy plot")
         return
-
-    # Number of shot values
     num_shots = len(shot_values)
-
-    # Width of each bar group
     group_width = 0.8
-
-    # Width of each bar within a group
-    bar_width = group_width / len(all_models)
-
-    # Set up colors for each model
+    bar_width = group_width / len(all_models) if all_models else group_width
     colors = [get_model_color(model) for model in all_models]
-
-    # For each shot count
     for shot_idx, shot in enumerate(shot_values):
-        # For each model
         for model_idx, model in enumerate(all_models):
-            # Calculate the x position for this bar
             x_pos = shot_idx + (model_idx - len(all_models) / 2 + 0.5) * bar_width
-
-            # Get the stats for this model and shot count
             if shot in accuracy_stats[model]:
                 correct = accuracy_stats[model][shot].get("correct", 0)
                 total = accuracy_stats[model][shot].get("total", 0)
-
-                # Calculate accuracy percentage
-                accuracy = (correct / total) * 100 if total > 0 else 0
-
-                # Plot the bar with accuracy percentage
+                accuracy = (correct / total * 100) if total > 0 else 0
                 plt.bar(
                     x_pos,
                     accuracy,
@@ -864,8 +844,6 @@ def print_ranking_statistics(db_manager: MongoDBManager) -> None:
                     color=colors[model_idx],
                     label=model.split("/")[-1] if shot_idx == 0 else "",
                 )
-
-                # Add accuracy label on top of the bar if it's non-zero
                 if accuracy > 0:
                     plt.text(
                         x_pos,
@@ -875,21 +853,29 @@ def print_ranking_statistics(db_manager: MongoDBManager) -> None:
                         va="bottom",
                         fontsize=9,
                     )
-
-    # Set up the plot labels and title
     plt.xlabel("Few-Shot Count")
     plt.ylabel("Accuracy (%)")
     plt.title("Model Accuracy Across Different Few-Shot Counts")
     plt.xticks(range(num_shots), [f"{shot}-shot" for shot in shot_values])
     plt.grid(axis="y", linestyle="--", alpha=0.7)
-
-    # Add legend with model names
-    plt.legend(title="Models", bbox_to_anchor=(0.78, 1), loc="upper left")
-
-    # Adjust layout and save
+    plt.legend(title="Models", loc="upper right")
     plt.tight_layout()
     plotter.save_plot(plt, "model_accuracy_by_shot_count.png")
     plt.close()
+
+    # Print invalid proposals statistics
+    for shot in shot_values:
+        print(f"\nInvalid Proposal Statistics for {shot}-shot:")
+        models = sorted(position_stats.get(shot, {}).keys())
+        for model in models:
+            total_responses = accuracy_stats[model][shot]["total"]
+            invalid = position_stats[shot][model].get(-1, {}).get("count", 0)
+            invalid_percentage = (
+                (invalid / total_responses * 100) if total_responses > 0 else 0
+            )
+            print(
+                f"  Model: {model} - Invalid: {invalid} ({invalid_percentage:.1f}% of {total_responses} total)"
+            )
 
 
 # --- Binary ---
@@ -920,14 +906,18 @@ def verify_binary_responses(db_manager: MongoDBManager) -> None:
 
 
 def plot_binary_accuracy_by_proposal_type(db_manager: MongoDBManager) -> None:
-    """Generates and saves plots of binary response accuracy for valid samples,
+    """Generates and saves a single plot of binary response accuracy for valid samples,
     grouped by proposal type and model, for different few-shot configurations.
 
-    Two plots are created:
-    1. One with zero-shot and the 2-shot/4-shot with 1 frame
-    2. Another with zero-shot and the 2-shot/4-shot with 2 frames
+    The plot is organized as a 3x2 grid:
+    - Top-middle: 2-shot with 1 frame
+    - Top-right: 4-shot with 1 frame
+    - Bottom-left: 0-shot
+    - Bottom-middle: 2-shot with 2 frames
+    - Bottom-right: 4-shot with 2 frames
+    (Top-left is empty to make space for the legend)
 
-    The plots have the y-axis as accuracy (%) and columns organized into 4 groups corresponding to proposal types
+    Each subplot has the y-axis as accuracy (%) and columns organized into 4 groups corresponding to proposal types
     (CORRECT, INCORRECT_HARD, INCORRECT_MEDIUM, INCORRECT_EASY). Each group contains bars for each model (colored by model).
 
     Only valid binary responses are considered.
@@ -937,7 +927,9 @@ def plot_binary_accuracy_by_proposal_type(db_manager: MongoDBManager) -> None:
     plotter = EvaluationPlotter("binary", db_manager)
 
     # Data structure: {few_shot_count: {few_shot_frames: {proposal_type: {model: (correct_count, total_count)}}}}
-    accuracy_data: dict[int, dict[int, dict[str, dict[str, tuple[int, int]]]]] = {
+    from typing import Dict, Tuple
+
+    accuracy_data: Dict[int, Dict[int, Dict[str, Dict[str, Tuple[int, int]]]]] = {
         0: {1: {}},  # 0-shot has 1 frames
         2: {1: {}, 2: {}},  # 2-shot with 1 or 2 frames
         4: {1: {}, 2: {}},  # 4-shot with 1 or 2 frames
@@ -945,7 +937,7 @@ def plot_binary_accuracy_by_proposal_type(db_manager: MongoDBManager) -> None:
 
     # Get evaluation results for all configurations
     for few_shot_count in [0, 2, 4]:
-        # For 0-shot, we only have 0 frames
+        # For 0-shot, we only have 1 frame
         frames_to_check = [1] if few_shot_count == 0 else [1, 2]
 
         for few_shot_frames in frames_to_check:
@@ -1006,72 +998,76 @@ def plot_binary_accuracy_by_proposal_type(db_manager: MongoDBManager) -> None:
 
     proposal_types = ["CORRECT", "INCORRECT_HARD", "INCORRECT_MEDIUM", "INCORRECT_EASY"]
 
-    # Create two separate plots
-    for frame_count in [1, 2]:
-        # Skip if we don't have data for this frame count
-        if not any(
-            accuracy_data[shot][frame_count if shot > 0 else 1] for shot in [0, 2, 4]
-        ):
-            continue
+    # Create a single figure with a 3x2 grid layout
+    fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(18, 12), sharey=True)
 
-        # Create a figure with three subplots: one for 0-shot, one for 2-shot, one for 4-shot
-        fig, axes = plt.subplots(ncols=3, figsize=(18, 6), sharey=True)
+    # Define the subplot positions for each configuration
+    # Format: (few_shot_count, few_shot_frames): (row, column, label)
+    subplot_positions = {
+        (2, 1): (0, 1, "2-shot 1 frame"),
+        (4, 1): (0, 2, "4-shot 1 frame"),
+        (0, 1): (0, 0, "0-shot"),  # 0-shot in bottom-left position
+        (2, 2): (1, 1, "2-shot 2 frames"),
+        (4, 2): (1, 2, "4-shot 2 frames"),
+    }
 
-        # Map shot counts to subplot indices and labels
-        shot_mapping = {
-            0: (0, "0-shot"),
-            2: (1, f"2-shot {frame_count} frame{'s' if frame_count > 1 else ''}"),
-            4: (2, f"4-shot {frame_count} frame{'s' if frame_count > 1 else ''}"),
-        }
+    # Remove the top-left subplot (not used, space for legend)
+    fig.delaxes(axes[1, 0])
 
-        # Use union_models for consistent ordering in all subplots
-        n_models = len(union_models)
-        bar_width = 0.8 / n_models if n_models > 0 else 0.8
-        x_groups = np.arange(len(proposal_types))  # one per proposal type
+    # Use union_models for consistent ordering in all subplots
+    n_models = len(union_models)
+    bar_width = 0.8 / n_models if n_models > 0 else 0.8
+    x_groups = np.arange(len(proposal_types))  # one per proposal type
 
-        for shot_count, (ax_idx, label) in shot_mapping.items():
-            ax = axes[ax_idx]
-            # For 0-shot, frames are always 1
-            frames = 1 if shot_count == 0 else frame_count
+    for (shot_count, frame_count), (row, col, label) in subplot_positions.items():
+        ax = axes[row, col]
 
-            for i, tier in enumerate(proposal_types):
-                for j, model in enumerate(sorted_union_models):
-                    correct, total = (
-                        accuracy_data[shot_count][frames]
-                        .get(tier, {})
-                        .get(model, (0, 0))
-                    )
-                    acc = (correct / total * 100) if total > 0 else 0
-                    # Calculate bar position within the group
-                    x = x_groups[i] + (j - (n_models - 1) / 2) * bar_width
-                    ax.bar(x, acc, width=bar_width, color=model_to_color[model])
+        for i, tier in enumerate(proposal_types):
+            for j, model in enumerate(sorted_union_models):
+                correct, total = (
+                    accuracy_data[shot_count][frame_count]
+                    .get(tier, {})
+                    .get(model, (0, 0))
+                )
+                acc = (correct / total * 100) if total > 0 else 0
+                # Calculate bar position within the group
+                x = x_groups[i] + (j - (n_models - 1) / 2) * bar_width
+                ax.bar(x, acc, width=bar_width, color=model_to_color[model])
 
-            ax.set_xticks(x_groups)
-            ax.set_xticklabels(proposal_types, rotation=45, ha="right")
+        ax.set_xticks(x_groups)
+        ax.set_xticklabels(proposal_types, rotation=45, ha="right")
+        ax.set_title(label)
+        ax.grid(axis="y")
+        ax.set_ylim(0, 100)
+
+        # Add x-label only to bottom row
+        if row == 1:
             ax.set_xlabel("Proposal Type")
-            ax.set_title(label)
-            ax.grid(axis="y")
-            ax.set_ylim(0, 100)
 
-            # Only add y-label to the first subplot
-            if ax_idx == 0:
-                ax.set_ylabel("Accuracy (%)")
+        # Add y-label only to leftmost column of each row
+        if col == 0:
+            ax.set_ylabel("Accuracy (%)")
 
-        # Create a global legend for models
-        legend_handles = [
-            Rectangle((0, 0), 1, 1, color=model_to_color[m])
-            for m in sorted_union_models
-        ]
-        fig.legend(
-            legend_handles,
-            [m.split("/")[-1] for m in sorted_union_models],
-            loc="upper left",
-            title="Models",
-        )
+    # Create a global legend for models
+    legend_handles = [
+        Rectangle((0, 0), 1, 1, color=model_to_color[m]) for m in sorted_union_models
+    ]
+    # Position the legend above the 0-shot plot (bottom-left)
+    fig.legend(
+        handles=legend_handles,
+        labels=[m.split("/")[-1] for m in sorted_union_models],
+        loc="upper center",
+        bbox_to_anchor=(0.17, 0.40),  # Position above the 0-shot plot (bottom-left)
+        ncol=1,  # Limit columns for better readability
+        title="Models",
+    )
 
-        plt.tight_layout()
-        plotter.save_plot(plt, f"accuracy_by_proposal_type_{frame_count}_frame.png")
-        plt.close()
+    plt.suptitle(
+        "Binary Accuracy by Proposal Type and Few-Shot Configuration", fontsize=16
+    )
+    plt.tight_layout(rect=(0, 0, 1, 0.95))  # Using tuple to fix linter error
+    plotter.save_plot(plt, "accuracy_by_proposal_type_combined.png")
+    plt.close()
 
 
 # --- Interactive ---
@@ -1090,7 +1086,7 @@ def main() -> None:
     # plot_sanity_check_results(db_manager)
 
     # plot_confidence_violin_by_proposal_type(db_manager)
-    # plot_confidence_violin_by_template_difficulty(db_manager, grouped_templates)
+    # plot_confidence_violin_by_both(db_manager, grouped_templates)
     # plot_confidence_by_model(db_manager)
 
     # print_ranking_statistics(db_manager)
