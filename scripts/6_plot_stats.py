@@ -7,6 +7,7 @@ from typing import Any, Dict, Tuple
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 
@@ -524,7 +525,7 @@ def plot_confidence_violin_by_both(
             if row_idx == 1:
                 ax.set_xlabel("Model")
 
-            # Only add y-axis label to leftmost column
+            # Only add y-axis label to leftmost column of each row
             if col_idx == 0:
                 ax.set_ylabel("Confidence (%)")
 
@@ -906,29 +907,15 @@ def verify_binary_responses(db_manager: MongoDBManager) -> None:
 
 
 def plot_binary_accuracy_by_proposal_type(db_manager: MongoDBManager) -> None:
-    """Generates and saves a single plot of binary response accuracy for valid samples,
-    grouped by proposal type and model, for different few-shot configurations.
+    """Generates and saves a plot of binary accuracy by proposal type and few-shot config.
 
-    The plot is organized as a 3x2 grid:
-    - Top-middle: 2-shot with 1 frame
-    - Top-right: 4-shot with 1 frame
-    - Bottom-left: 0-shot
-    - Bottom-middle: 2-shot with 2 frames
-    - Bottom-right: 4-shot with 2 frames
-    (Top-left is empty to make space for the legend)
-
-    Each subplot has the y-axis as accuracy (%) and columns organized into 4 groups corresponding to proposal types
-    (CORRECT, INCORRECT_HARD, INCORRECT_MEDIUM, INCORRECT_EASY). Each group contains bars for each model (colored by model).
-
-    Only valid binary responses are considered.
-    The expected binary answer is 'yes' if the proposal type is CORRECT, else 'no'.
+    The plot shows accuracy rates for different models across proposal types.
+    Each subplot represents a different few-shot configuration.
     """
     # Create an EvaluationPlotter instance for binary evaluation
     plotter = EvaluationPlotter("binary", db_manager)
 
     # Data structure: {few_shot_count: {few_shot_frames: {proposal_type: {model: (correct_count, total_count)}}}}
-    from typing import Dict, Tuple
-
     accuracy_data: Dict[int, Dict[int, Dict[str, Dict[str, Tuple[int, int]]]]] = {
         0: {1: {}},  # 0-shot has 1 frames
         2: {1: {}, 2: {}},  # 2-shot with 1 or 2 frames
@@ -1065,35 +1052,879 @@ def plot_binary_accuracy_by_proposal_type(db_manager: MongoDBManager) -> None:
     plt.suptitle(
         "Binary Accuracy by Proposal Type and Few-Shot Configuration", fontsize=16
     )
-    plt.tight_layout(rect=(0, 0, 1, 0.95))  # Using tuple to fix linter error
+    plt.tight_layout(rect=(0, 0, 1, 0.95))
     plotter.save_plot(plt, "accuracy_by_proposal_type_combined.png")
     plt.close()
 
 
-# --- Interactive ---
+def plot_binary_accuracy_by_template_difficulty(
+    db_manager: MongoDBManager, grouped_templates: dict[str, list[int]]
+) -> None:
+    """Generates and saves a comparison plot of binary target accuracy by template difficulty
+    for two settings: 0-shot and 4-shot 1 frame.
+
+    For each configuration, all responses are aggregated and accuracy is computed as the percentage of correct responses.
+    Correct responses are further broken down by whether they come from correct proposals (tier 'CORRECT') or incorrect proposals.
+    The resulting plot consists of two horizontally arranged subplots (one per configuration) where each stacked bar shows:
+    - The dark grey segment (color '#555555') representing correct responses from incorrect proposals,
+    - The light grey segment (color '#BBBBBB') representing correct responses from correct proposals.
+
+    Args:
+        db_manager: The MongoDB manager instance.
+        grouped_templates: Dictionary with keys "easy", "medium", "hard" and values as lists of template IDs.
+    """
+    # Define configurations to compare
+    configs = [
+        {"label": "0-shot", "few_shot_count": 0, "few_shot_frames": 1},
+        {"label": "2-shot 1 frame", "few_shot_count": 2, "few_shot_frames": 1},
+        {"label": "4-shot 1 frame", "few_shot_count": 4, "few_shot_frames": 1},
+    ]
+
+    difficulties = ["easy", "medium", "hard"]
+    config_results: dict[str, dict[str, dict[str, dict[str, dict[str, int]]]]] = {}
+
+    # Process each configuration
+    for conf in configs:
+        label = conf["label"]
+        few_shot_count = conf["few_shot_count"]
+        few_shot_frames = conf["few_shot_frames"]
+
+        # Create an EvaluationPlotter instance for binary evaluation
+        plotter = EvaluationPlotter("binary", db_manager)
+        extra_filters = {
+            "few_shot_count": few_shot_count,
+            "few_shot_frames": few_shot_frames,
+        }
+        grouped_results = plotter.get_grouped_evaluation_results(extra_filters)
+
+        # Initialize results for this configuration
+        conf_data: dict[str, dict[str, dict[str, dict[str, int]]]] = {}
+        for model, results in grouped_results.items():
+            if model not in conf_data:
+                conf_data[model] = {
+                    diff: {
+                        "target": {"correct": 0, "total": 0},
+                        "non_target": {"correct": 0, "total": 0},
+                    }
+                    for diff in difficulties
+                }
+            for doc in results:
+                response = str(doc.response).strip().lower()
+                if response not in ["yes", "no", "n"]:
+                    continue
+                if response == "n":
+                    response = "no"
+                tier = str(doc.sample.proposal.tier).upper()
+                try:
+                    template_str = str(doc.sample.puzzle.id).split(":")[0]
+                    template_id = int(template_str)
+                except (AttributeError, IndexError, ValueError):
+                    continue
+                diff_found = None
+                for diff, templates in grouped_templates.items():
+                    if template_id in templates:
+                        diff_found = diff
+                        break
+                if diff_found is None:
+                    continue
+                if tier == "CORRECT":
+                    conf_data[model][diff_found]["target"]["total"] += 1
+                    if response == "yes":
+                        conf_data[model][diff_found]["target"]["correct"] += 1
+                else:
+                    conf_data[model][diff_found]["non_target"]["total"] += 1
+                    if response == "no":
+                        conf_data[model][diff_found]["non_target"]["correct"] += 1
+
+        config_results[label] = conf_data
+
+    # --- New plotting section: Binary Accuracy by Model ---
+    # Filter configurations to include 0-shot, 2-shot 1 frame, and 4-shot 1 frame as required
+    configs_to_plot = [
+        conf
+        for conf in configs
+        if conf["label"] in {"0-shot", "2-shot 1 frame", "4-shot 1 frame"}
+    ]
+    fig, axes = plt.subplots(
+        1, len(configs_to_plot), figsize=(6 * len(configs_to_plot), 6), sharey=True
+    )
+    if len(configs_to_plot) == 1:
+        axes = [axes]
+
+    for idx, conf in enumerate(configs_to_plot):
+        label = conf["label"]
+        conf_data = config_results.get(label, {})
+        # Aggregate responses per model by summing over difficulties
+        aggregated: dict[str, dict[str, float]] = {}
+        for model, m_data in conf_data.items():
+            target_total = sum(
+                m_data.get(diff, {}).get("target", {}).get("total", 0)
+                for diff in difficulties
+            )
+            target_correct = sum(
+                m_data.get(diff, {}).get("target", {}).get("correct", 0)
+                for diff in difficulties
+            )
+            nt_total = sum(
+                m_data.get(diff, {}).get("non_target", {}).get("total", 0)
+                for diff in difficulties
+            )
+            nt_correct = sum(
+                m_data.get(diff, {}).get("non_target", {}).get("correct", 0)
+                for diff in difficulties
+            )
+            total = target_total + nt_total
+            if total > 0:
+                target_perc = (target_correct / total) * 100
+                nt_perc = (nt_correct / total) * 100
+            else:
+                target_perc = 0.0
+                nt_perc = 0.0
+            aggregated[model] = {
+                "target": target_perc,
+                "non_target": nt_perc,
+                "total": target_perc + nt_perc,
+            }
+
+        # Sort models alphabetically for consistent ordering
+        models = sorted(aggregated.keys())
+        x_positions = np.arange(len(models))
+        ax = axes[idx]
+        bar_width = 0.5
+        for i, model in enumerate(models):
+            base_color = get_model_color(model)
+            bright_color = adjust_color_brightness(
+                base_color, 1.1
+            )  # Brighter for correct (target)
+            dark_color = adjust_color_brightness(
+                base_color, 0.9
+            )  # Darker for incorrect (non_target)
+            model_data = aggregated[model]
+            # Plot the non_target (incorrect) part on bottom
+            ax.bar(
+                x_positions[i],
+                model_data["non_target"],
+                width=bar_width,
+                color=dark_color,
+            )
+            # Stack the target (correct) part on top
+            ax.bar(
+                x_positions[i],
+                model_data["target"],
+                width=bar_width,
+                bottom=model_data["non_target"],
+                color=bright_color,
+            )
+            ax.text(
+                x_positions[i],
+                model_data["total"] + 1,
+                f"{model_data['total']:.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=10,
+            )
+        ax.set_xticks(x_positions)
+        # ax.set_xticklabels([model.split("/")[-1] for model in models], rotation=45)
+        ax.set_xlabel("Model")
+        ax.set_ylim(0, 100)
+        ax.grid(axis="y", linestyle="--", alpha=0.7)
+        ax.set_title(f"Binary Accuracy ({label})")
+        if idx == 0:
+            ax.set_ylabel("Accuracy (%)")
+
+    # Add global legend for models and dark/bright explanation
+    from matplotlib.patches import Patch
+
+    all_models = set()
+    for conf in configs_to_plot:
+        label = conf["label"]
+        conf_data = config_results.get(label, {})
+        for model in conf_data.keys():
+            all_models.add(model)
+    sorted_models_global = sorted(all_models)
+    model_handles = [
+        Patch(facecolor=get_model_color(model), label=model.split("/")[-1])
+        for model in sorted_models_global
+    ]
+    dark_patch = Patch(facecolor="#555555", label="Incorrect Proposals")
+    bright_patch = Patch(facecolor="#BBBBBB", label="Correct Proposals")
+    combined_handles = model_handles + [bright_patch, dark_patch]
+    fig.legend(
+        handles=combined_handles,
+        loc="upper left",
+        title="Legend",
+        title_fontsize=12,
+        fontsize=10,
+    )
+
+    plt.suptitle(
+        "Binary Accuracy by Model",
+        fontsize=16,
+    )
+    plt.tight_layout(rect=(0, 0, 1, 0.95))
+    plotter = EvaluationPlotter("binary", db_manager)
+    plotter.save_plot(plt, "binary_accuracy_by_model_comparison.png")
+    plt.close()
+
+    # --- Interactive ---
+
+
+def plot_interactive_stats(db_manager: MongoDBManager) -> None:
+    """Generates and saves a visualization of interactive evaluation statuses.
+
+    Visualizes the distribution of all 4 relevant statuses (GOAL_REACHED, GOAL_NOT_REACHED,
+    OUTSIDE_BOUNDARIES, OVERLAPPING) across templates and models.
+    Each template is identified by the first part of the ID before ':'.
+
+    Creates a heatmap visualization that shows:
+    1. The distribution of statuses per template and model
+    2. The frequency of each status type
+    3. A comparative view between models
+    """
+    # Create an EvaluationPlotter instance for interactive evaluation
+    plotter = EvaluationPlotter("interactive", db_manager)
+
+    # Get evaluation results for all models
+    grouped_results = plotter.get_grouped_evaluation_results()
+
+    # Define the possible statuses (order matters for visualization)
+    # Remove JSON_INCORRECT_FORMAT as it's always 0
+    statuses = [
+        "GOAL_REACHED",
+        "GOAL_NOT_REACHED",
+        "OUTSIDE_BOUNDARIES",
+        "OVERLAPPING",
+    ]
+
+    # Data structures to hold status counts by template and model
+    # Structure: {model: {template_id: {status: count}}}
+    status_data: dict[str, dict[str, dict[str, int]]] = {}
+
+    # Set to collect all unique template IDs (without version part)
+    template_base_ids = set()
+
+    # Process the results
+    for model, results in grouped_results.items():
+        status_data[model] = {}
+
+        for doc in results:
+            # Extract the template ID (part before ':')
+            full_template_id = doc.sample.puzzle.id
+            template_base_id = full_template_id.split(":")[0]
+            template_base_ids.add(template_base_id)
+
+            # Initialize the template data if not present
+            if template_base_id not in status_data[model]:
+                status_data[model][template_base_id] = {
+                    status: 0 for status in statuses
+                }
+
+            # Count occurrences of each status in interactive_results
+            if doc.interactive_results:
+                for result in doc.interactive_results:
+                    status = result.status
+                    if status in statuses:
+                        status_data[model][template_base_id][status] += 1
+
+    # Sort template IDs for consistent display
+    sorted_template_ids = sorted(template_base_ids)
+
+    # Sort models for consistent display
+    sorted_models = sorted(status_data.keys())
+
+    # Get model colors for consistent display across plots
+    model_to_color = {model: get_model_color(model) for model in sorted_models}
+
+    # Calculate the number of subplots needed (one per model)
+    num_models = len(sorted_models)
+
+    # Create a figure with a grid of heatmaps (one per model)
+    # Adjust figure width for better centering
+    fig, axs = plt.subplots(
+        num_models,
+        1,
+        figsize=(len(sorted_template_ids) * 0.7, 4.5 * num_models),
+        # gridspec_kw={"hspace": 0.5},
+    )
+
+    # Handle the case with only one model
+    if num_models == 1:
+        axs = [axs]
+
+    # Dictionary to store overall status counts for the pie chart
+    overall_counts = {
+        model: {status: 0 for status in statuses} for model in sorted_models
+    }
+
+    # Create a heatmap for each model
+    for i, model in enumerate(sorted_models):
+        # Create data for this model's heatmap
+        # One row per status, one column per template
+        data = np.zeros((len(statuses), len(sorted_template_ids)))
+
+        for j, status in enumerate(statuses):
+            for k, template_id in enumerate(sorted_template_ids):
+                if template_id in status_data[model]:
+                    count = status_data[model][template_id].get(status, 0)
+                    data[j, k] = count
+                    overall_counts[model][status] += count
+
+        # Use a custom colormap starting with the model's color for zero values
+        # and transitioning to deeper red for higher values
+
+        model_cmap = LinearSegmentedColormap.from_list(
+            f"model_cmap_{i}",
+            [
+                adjust_color_brightness(model_to_color[model], 1.5),
+                adjust_color_brightness(model_to_color[model], 1.4),
+                adjust_color_brightness(model_to_color[model], 1.3),
+                adjust_color_brightness(model_to_color[model], 1.2),
+                adjust_color_brightness(model_to_color[model], 1.1),
+                adjust_color_brightness(model_to_color[model], 1.0),
+            ],
+        )
+
+        # Plot the heatmap
+        im = axs[i].imshow(data, cmap=model_cmap, aspect="auto")
+
+        # Add colorbar
+        cbar = fig.colorbar(im, ax=axs[i])
+        cbar.set_label("Count")
+
+        # Set axis labels with better positioning
+        axs[i].set_yticks(np.arange(len(statuses)))
+        axs[i].set_yticklabels(statuses)
+
+        # Set and style x-axis labels horizontally
+        axs[i].set_xticks(np.arange(len(sorted_template_ids)))
+        axs[i].set_xticklabels(
+            [id[-2:] for id in sorted_template_ids], rotation=0, ha="center"
+        )
+
+        # Set title for this subplot
+        model_display = model.split("/")[-1]
+        axs[i].set_title(f"Status Distribution for {model_display}")
+
+        # Add text annotations on the heatmap
+        for j in range(len(statuses)):
+            for k in range(len(sorted_template_ids)):
+                if data[j, k] > 0:
+                    text_color = "white" if data[j, k] > 2 else "black"
+                    axs[i].text(
+                        k,
+                        j,
+                        f"{int(data[j, k])}",
+                        ha="center",
+                        va="center",
+                        color=text_color,
+                    )
+
+    # Set the overall title
+    plt.suptitle(
+        "Interactive Evaluation Status Distribution by Template and Model", fontsize=16
+    )
+
+    # Adjust layout to reduce white space on left and right
+    plt.tight_layout(rect=(0.02, 0, 1.05, 0.95))
+
+    # Save the heatmap figure
+    plotter.save_plot(plt, "interactive_status_distribution_heatmap.png")
+    plt.close()
+
+    # Create a second figure with pie charts for overall status distribution
+    # Adjust figure size for better centering
+    fig, axs = plt.subplots(1, num_models, figsize=(5 * num_models, 6))
+
+    # Handle the case with only one model
+    if num_models == 1:
+        axs = [axs]
+
+    # Custom colors for different statuses
+    status_colors = {
+        "GOAL_REACHED": "#2ca02c",  # Green
+        "GOAL_NOT_REACHED": "#ff7f0e",  # Orange
+        "OUTSIDE_BOUNDARIES": "#d62728",  # Red
+        "OVERLAPPING": "#1f77b4",  # Blue
+    }
+
+    # Variable to store wedges for the legend
+    legend_wedges = None
+    has_data = False
+
+    # Create a pie chart for each model
+    for i, model in enumerate(sorted_models):
+        model_display = model.split("/")[-1]
+
+        # Extract the counts and calculate percentages
+        status_counts = [overall_counts[model][status] for status in statuses]
+        total = sum(status_counts)
+
+        # Skip if no data
+        if total == 0:
+            axs[i].text(
+                0.5, 0.5, "No data available", ha="center", va="center", fontsize=14
+            )
+            axs[i].axis("off")
+            continue
+
+        has_data = True
+
+        # Create the pie chart without labels
+        wedges, _, _ = axs[i].pie(
+            status_counts,
+            labels=None,  # Remove labels
+            autopct="%1.1f%%",
+            startangle=90,
+            colors=[status_colors[status] for status in statuses],
+            wedgeprops={"edgecolor": "w", "linewidth": 1},
+        )
+
+        # Set the title
+        axs[i].set_title(
+            f"Status Distribution for {model_display}\nTotal Interactions: {total}"
+        )
+
+        # Store wedges for the combined legend
+        if i == 0:  # Only need to store once
+            legend_wedges = wedges
+
+    # Create a single legend for all pie charts in the top right
+    if has_data and legend_wedges is not None:
+        fig.legend(
+            legend_wedges,
+            statuses,
+            title="Status Types",
+            loc="lower right",  # Changed to bottom right
+            bbox_to_anchor=(0.99, 0.01),  # Adjusted bbox_to_anchor for bottom right
+        )
+
+    # Set the figure title
+    plt.suptitle("Overall Interactive Status Distribution by Model", fontsize=16)
+
+    # Adjust layout to center content and accommodate the single legend
+    plt.tight_layout(rect=(0, 0, 1, 0.9))
+
+    # Save the pie chart figure
+    plotter.save_plot(plt, "interactive_status_distribution_pie.png")
+
+    # Close the figures
+    plt.close("all")
+
+    # Print a summary of the results
+    print("\n=== Interactive Evaluation Status Summary ===")
+    for model in sorted_models:
+        model_display = model.split("/")[-1]
+        print(f"\n{model_display}:")
+
+        for status in statuses:
+            count = overall_counts[model][status]
+            print(f"  - {status}: {count}")
+
+
+def plot_interactive_status_by_attempt(db_manager: MongoDBManager) -> None:
+    """
+    Analyzes and visualizes at which attempt number each status
+    (GOAL_REACHED, OVERLAPPING, OUTSIDE_BOUNDARIES) occurred.
+    """
+    plotter = EvaluationPlotter("interactive", db_manager)
+
+    # Get results grouped by model
+    results_by_model = plotter.get_grouped_evaluation_results()
+
+    statuses_of_interest = ["GOAL_REACHED", "OVERLAPPING", "OUTSIDE_BOUNDARIES"]
+    status_colors = {
+        "GOAL_REACHED": "#2ca02c",  # Green
+        "OVERLAPPING": "#1f77b4",  # Blue
+        "OUTSIDE_BOUNDARIES": "#d62728",  # Red
+    }
+
+    # Create a figure with subplots for each model
+    num_models = len(results_by_model)
+    fig, axes = plt.subplots(num_models, 1, figsize=(12, 4 * num_models), sharex=True)
+
+    # If there's only one model, convert axes to list for consistent indexing
+    if num_models == 1:
+        axes = [axes]
+
+    # For each model
+    for i, (model, results) in enumerate(results_by_model.items()):
+        model_color = get_model_color(model)
+
+        # Initialize data structure to hold attempt counts for each status
+        status_attempts = {
+            status: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0} for status in statuses_of_interest
+        }
+
+        # Process results for this model
+        for result in results:
+            # Access interactive_results to find statuses
+            if result.interactive_results:
+                for attempt_idx, interactive_result in enumerate(
+                    result.interactive_results, 1
+                ):
+                    # Only consider up to 5 attempts
+                    if attempt_idx > 5:
+                        break
+
+                    if interactive_result.status in statuses_of_interest:
+                        status_attempts[interactive_result.status][attempt_idx] += 1
+
+        # Create the subplot for this model
+        ax = axes[i]
+
+        # Set up bar positions
+        bar_width = 0.25
+        attempt_positions = np.arange(1, 6)
+
+        # Plot bars for each status
+        for j, status in enumerate(statuses_of_interest):
+            values = [status_attempts[status][attempt] for attempt in range(1, 6)]
+            position = attempt_positions + (j - 1) * bar_width
+            bars = ax.bar(
+                position,
+                values,
+                width=bar_width,
+                label=status,
+                color=status_colors[status],
+                alpha=0.8,
+            )
+
+            # Add the count numbers on top of each bar
+            for bar, value in zip(bars, values):
+                if value > 0:
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        bar.get_height() + 0.5,
+                        str(value),
+                        ha="center",
+                        va="bottom",
+                    )
+
+        # Set subplot title and labels
+        ax.set_title(
+            f"Status Distribution by Attempt for {model.split('/')[-1]}", fontsize=14
+        )
+        ax.set_xticks(attempt_positions)
+        ax.set_xticklabels([f"Attempt {i}" for i in range(1, 6)])
+        ax.set_ylabel("Count", fontsize=12)
+        if i == 1:
+            ax.legend(title="Status", loc="upper right")
+        ax.grid(axis="y", linestyle="--", alpha=0.7)
+
+        # Ensure y-axis starts at 0
+        ax.set_ylim(bottom=0)
+
+    plt.suptitle("Distribution of Statuses by Attempt Number", fontsize=16)
+    plt.tight_layout(rect=(0, 0, 1, 0.96))
+
+    # Save the figure
+    plotter.save_plot(plt, "interactive_status_by_attempt.png")
+    plt.close()
+
+
+def plot_interactive_proposal_differences(db_manager: MongoDBManager) -> None:
+    """
+    Analyzes and visualizes how models adjust their proposals between consecutive attempts.
+
+    This function examines:
+    1. Changes in absolute distance between consecutive attempts
+    2. Changes in absolute radius between consecutive attempts
+
+    For each model, it creates visualizations showing how proposals are refined based on feedback.
+    """
+    plotter = EvaluationPlotter("interactive", db_manager)
+
+    # Get results grouped by model
+    results_by_model = plotter.get_grouped_evaluation_results()
+
+    # Create figure with 2 rows (absolute distance, absolute radius) and 1 column per model
+    num_models = len(results_by_model)
+    fig, axes = plt.subplots(2, num_models, figsize=(6 * num_models, 7), sharex="col")
+
+    # If there's only one model, reshape axes for consistent indexing
+    if num_models == 1:
+        axes = axes.reshape(2, 1)
+
+    # For each model
+    for model_idx, (model, results) in enumerate(results_by_model.items()):
+        model_color = get_model_color(model)
+
+        # Data structures to store differences by attempt
+        distance_diffs_by_attempt = {
+            2: [],
+            3: [],
+            4: [],
+            5: [],
+        }  # absolute distance differences
+        r_abs_diffs_by_attempt = {
+            2: [],
+            3: [],
+            4: [],
+            5: [],
+        }  # absolute radius differences
+
+        # Process each evaluation result
+        for result in results:
+            # Skip if no interactive results
+            if not result.interactive_results or len(result.interactive_results) < 2:
+                continue
+
+            # Process consecutive attempts
+            for i in range(1, len(result.interactive_results)):
+                prev_attempt = result.interactive_results[i - 1]
+                curr_attempt = result.interactive_results[i]
+
+                # Current attempt number (1-based)
+                attempt_num = i + 1
+
+                # Skip if invalid data or JSON_INCORRECT_FORMAT
+                if (
+                    prev_attempt.status == "JSON_INCORRECT_FORMAT"
+                    or curr_attempt.status == "JSON_INCORRECT_FORMAT"
+                ):
+                    continue
+
+                # Extract proposal data
+                try:
+                    prev_props = prev_attempt.ball_data
+                    curr_props = curr_attempt.ball_data
+
+                    # Skip if any data is None
+                    if prev_props is None or curr_props is None:
+                        continue
+
+                    # Handle both single ball and multi-ball scenarios
+                    # For simplicity, we'll focus on the first ball if multiple
+                    if isinstance(prev_props, list):
+                        prev_props = prev_props[0]
+                    if isinstance(curr_props, list):
+                        curr_props = curr_props[0]
+
+                    # Calculate absolute distance difference using Euclidean distance
+                    prev_x = float(prev_props.get("x", 0))
+                    prev_y = float(prev_props.get("y", 0))
+                    curr_x = float(curr_props.get("x", 0))
+                    curr_y = float(curr_props.get("y", 0))
+
+                    # Calculate Euclidean distance between points
+                    distance_diff = (
+                        (curr_x - prev_x) ** 2 + (curr_y - prev_y) ** 2
+                    ) ** 0.5
+
+                    # Calculate absolute radius difference
+                    r_diff = abs(
+                        float(curr_props.get("radius", 0))
+                        - float(prev_props.get("radius", 0))
+                    )
+
+                    # Store differences by attempt number
+                    if attempt_num in distance_diffs_by_attempt:
+                        distance_diffs_by_attempt[attempt_num].append(distance_diff)
+                        r_abs_diffs_by_attempt[attempt_num].append(r_diff)
+
+                except (KeyError, TypeError, ValueError) as e:
+                    # Skip this pair if there's a data issue
+                    continue
+
+        # Plot absolute distance differences as violin plots
+        ax_dist = axes[0, model_idx]
+
+        # Prepare data for violin plots
+        distance_data = [distance_diffs_by_attempt[i] for i in range(2, 6)]
+        positions = list(range(2, 6))
+
+        # Create violin plots for distance differences
+        violin_parts = ax_dist.violinplot(
+            distance_data,
+            positions=positions,
+            showmeans=True,
+            showmedians=True,
+            widths=0.7,
+        )
+
+        # Set violin colors to model color
+        for pc in violin_parts["bodies"]:
+            pc.set_facecolor(model_color)
+            pc.set_alpha(0.7)
+
+        # Customize violin plot appearance
+        for partname in ["cmeans", "cmedians", "cbars", "cmins", "cmaxes"]:
+            if partname in violin_parts:
+                violin_parts[partname].set_edgecolor("black")
+
+        ax_dist.set_title(
+            f"{model.split('/')[-1]} - Position Distance Adjustments", fontsize=12
+        )
+        ax_dist.set_ylabel("Absolute Distance Difference")
+        ax_dist.grid(True, alpha=0.3)
+
+        # Plot absolute radius differences as violin plots
+        ax_r = axes[1, model_idx]
+
+        # Prepare data for violin plots
+        radius_data = [r_abs_diffs_by_attempt[i] for i in range(2, 6)]
+
+        # Create violin plots for radius differences
+        violin_parts = ax_r.violinplot(
+            radius_data,
+            positions=positions,
+            showmeans=True,
+            showmedians=True,
+            widths=0.7,
+        )
+
+        # Set violin colors to model color
+        for pc in violin_parts["bodies"]:
+            pc.set_facecolor(model_color)
+            pc.set_alpha(0.7)
+
+        # Customize violin plot appearance
+        for partname in ["cmeans", "cmedians", "cbars", "cmins", "cmaxes"]:
+            if partname in violin_parts:
+                violin_parts[partname].set_edgecolor("black")
+
+        ax_r.set_title(f"{model.split('/')[-1]} - Radius Adjustments", fontsize=12)
+        ax_r.set_xlabel("Attempt")
+        ax_r.set_ylabel("Absolute Radius Difference")
+        ax_r.grid(True, alpha=0.3)
+
+        # Set shared x-axis labels
+        ax_r.set_xticks(range(2, 6))  # Attempts 2-5 (pairs 1-2, 2-3, 3-4, 4-5)
+        ax_r.set_xticklabels([f"Attempt {i}" for i in range(2, 6)])
+
+    plt.suptitle("Changes in Ball Proposals Between Consecutive Attempts", fontsize=16)
+    plt.tight_layout(rect=(0, 0, 1, 0.97))
+
+    # Save the figure
+    plotter.save_plot(plt, "interactive_proposal_differences.png")
+    plt.close()
+
+
+def plot_interactive_success_rates(db_manager: MongoDBManager) -> None:
+    """
+    Creates a bar chart visualization showing the success rates for each model in interactive evaluation.
+    Success rate is defined as the percentage of puzzles where the model reached the goal (GOAL_REACHED status).
+
+    The chart displays:
+    1. Success rate percentage for each model
+    2. Absolute numbers (successful puzzles / total puzzles)
+    3. Model names displayed horizontally under each bar
+    """
+    # Create an EvaluationPlotter instance for interactive evaluation
+    plotter = EvaluationPlotter("interactive", db_manager)
+
+    # Get evaluation results for all models
+    grouped_results = plotter.get_grouped_evaluation_results()
+
+    # Calculate success rates for each model
+    model_success_data = {}
+    for model, results in grouped_results.items():
+        total_puzzles = len(results)
+        successful_puzzles = sum(
+            1
+            for doc in results
+            if doc.interactive_results
+            and any(
+                result.status == "GOAL_REACHED" for result in doc.interactive_results
+            )
+        )
+        success_rate = (
+            (successful_puzzles / total_puzzles) * 100 if total_puzzles > 0 else 0
+        )
+        model_success_data[model] = {
+            "success_rate": success_rate,
+            "successful_puzzles": successful_puzzles,
+            "total_puzzles": total_puzzles,
+        }
+
+    # Sort models for consistent display
+    sorted_models = sorted(model_success_data.keys())
+
+    # Get model colors for consistent display across plots
+    model_colors = {model: get_model_color(model) for model in sorted_models}
+
+    # Create the figure
+    plt.figure(figsize=(12, 4))
+
+    # Plot the bars
+    x_positions = np.arange(len(sorted_models))
+    bars = plt.bar(
+        x_positions,
+        [model_success_data[model]["success_rate"] for model in sorted_models],
+        color=[model_colors[model] for model in sorted_models],
+        width=0.6,
+    )
+
+    # Add labels with the success rate percentage and counts
+    for i, bar in enumerate(bars):
+        model = sorted_models[i]
+        data = model_success_data[model]
+        success_rate = data["success_rate"]
+        successful_puzzles = data["successful_puzzles"]
+        total_puzzles = data["total_puzzles"]
+
+        # Add percentage label above the bar
+        plt.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 1,  # Position slightly above the bar
+            f"{success_rate:.1f}%\n({successful_puzzles}/{total_puzzles})",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+        )
+
+    # Set the x-axis labels to be the model names (displayed horizontally)
+    plt.xticks(
+        x_positions,
+        [model.split("/")[-1] for model in sorted_models],
+        rotation=0,  # Horizontal labels
+        ha="center",
+    )
+
+    # Configure the plot
+    plt.title("Interactive Evaluation Success Rates by Model", fontsize=16)
+    plt.ylabel("Success Rate (%)", fontsize=12)
+    plt.ylim(0, 100)  # Set y-axis from 0 to 100%
+    plt.grid(axis="y", linestyle="--", alpha=0.3)
+
+    # Add horizontal lines at key percentage points
+    for percentage in [20, 40, 60, 80, 100]:
+        plt.axhline(y=percentage, color="gray", linestyle="-", alpha=0.3)
+
+    # Adjust layout
+    plt.tight_layout()
+
+    # Save the figure
+    plotter.save_plot(plt, "interactive_success_rates.png")
+    plt.close()
 
 
 def main() -> None:
+    """Main function that runs all the plotting functions."""
     parser = ArgparseManager("Plot statistics from MongoDB.")
     parser.add_common_db_args()
     args = parser.parse_args()
 
     db_manager = MongoDBManager(db_name=args.db_name)
 
-    # Uncomment the plot function you want to run
-    # grouped_templates = plot_mean_attempts_per_template(db_manager)
+    # Get the grouped templates for the confidence plots
+    grouped_templates = plot_mean_attempts_per_template(db_manager)
 
+    # Run all plotting functions
     # plot_sanity_check_results(db_manager)
-
     # plot_confidence_violin_by_proposal_type(db_manager)
     # plot_confidence_violin_by_both(db_manager, grouped_templates)
     # plot_confidence_by_model(db_manager)
-
     # print_ranking_statistics(db_manager)
-
     # verify_binary_responses(db_manager)
-    plot_binary_accuracy_by_proposal_type(db_manager)
+    # plot_binary_accuracy_by_proposal_type(db_manager)
+    # plot_interactive_stats(db_manager)
+    # plot_interactive_status_by_attempt(db_manager)
+    # plot_interactive_proposal_differences(db_manager)
+    # plot_interactive_success_rates(db_manager)
+    plot_binary_accuracy_by_template_difficulty(db_manager, grouped_templates)
 
+    # Close the MongoDB connection
     db_manager.close_connection()
 
 
