@@ -1,9 +1,20 @@
-pygame
-tqdm
-weave
-transformers
-torch
-Pillow
-loguru
-pymongo
+# Core dependencies
+numpy
 pydantic
+pymongo
+loguru
+tqdm
+Pillow
+pygame
+
+# Hugging Face dependencies
+datasets
+transformers
+huggingface_hub
+
+# For API interactions
+requests
+openai
+
+# For image processing
+matplotlib

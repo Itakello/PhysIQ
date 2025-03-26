@@ -22,3 +22,6 @@ images/
 node_modules/
 
 db_backup/
+.vscode
+
+*.zip
