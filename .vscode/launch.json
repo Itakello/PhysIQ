@@ -40,15 +40,15 @@
             "cwd": "${workspaceFolder}",
             "args": [
                 "--start_template",
-                "0",
+                "4",
                 "--start_iteration",
                 "0",
                 "--iterations",
                 "100",
                 "--db_name",
                 "physiq_db",
-                "--save_to_db"
-                //"--visualize",
+                //"--save_to_db"
+                "--visualize",
                 //"--debug",
             ]
         },
