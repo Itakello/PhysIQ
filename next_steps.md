@@ -51,8 +51,13 @@ These prompt templates can be used as baselines for benchmarking LLM physical re
 - [ ] 🔧 **Split code into main operation scripts**
   - [x] Create `0_extract_jsons.py` - Extract the puzzles metadata from phyre (uses python 3.8 beacause of phyre old repository)
   - [x] Create `1_move_to_db.py` - Create the mongoDB database + move the puzzles to the DB
+<<<<<<< HEAD
   - [x] Create `2_simulation_testing.py` - Simulate the puzzles using pybox2d
   - [x] Create `3_good_proposals_identification.py` - Brute-force the good proposals findings by verification and store them in MongoDB in a new table + the images
+=======
+  - [x] Create `2_simulation_testing.py` - Simulate the puzzles using pymunk
+  - [ ] Create `3_proposals_identification.py` - Brute-force the proposals findings by verification (x good proposals and x bad proposals) and store them in MongoDB in a new table + the images
+>>>>>>> 52f9dd91f0793666f53bba46b9f9d22deff29724
   - [ ] Create `4_offline_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
   - [ ] Create `5_online_evaluation.py` - Evaluate 1 or more LLMs with 3 different prompts
   - [ ] Create `6_plot_results.py` - Plot the results of the experiments
@@ -74,18 +79,6 @@ These prompt templates can be used as baselines for benchmarking LLM physical re
   - [ ] Define a naming convention for image storage
   - [ ] Integrate with Hugging Face Datasets
   - [ ] Integrate with the `datasets` library
-
-#### **3️⃣ Engine Conversion (PyBox2D Migration)**
-
-- [x] 🔬 **Analyze PhyRE repo**
-  - [x] Identify physical hyperparameters used and their values
-  - [x] Understand how PhyRE stores physical parameters
-  - [x] Study how solutions are generated
-  - [x] Analyze how PhyRE validates solutions efficiently
-- [x] 🛠️ **Understand PyBox2D mechanics**
-  - [x] Simulate existing templates in PyBox2D
-  - [x] Implement brute-force solution finding
-  - [x] Implement solution verification and optimize for speed
 
 #### **4️⃣ Offline Evaluation**
 

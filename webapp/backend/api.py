@@ -7,8 +7,12 @@ from dask.distributed import Client, as_completed
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+<<<<<<< HEAD
 from managers.mongodb_manager import MongoDBManager
 from src.utils.box2d_runner import run_simulation
+=======
+from src.managers.db_manager import MongoDBManager
+>>>>>>> 52f9dd91f0793666f53bba46b9f9d22deff29724
 from src.utils.db_schemas import PuzzleSchema
 
 app = FastAPI(title="PhysIQ API")
